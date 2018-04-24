@@ -1,5 +1,8 @@
+# Ignore notebook checkpoint files
+*/.ipynb_checkpoints/*
+
 # Ignore cache files
-__pycache__/*
+*/__pycache__/*
 cachedir/*
 
 # Ignore mac directory files
