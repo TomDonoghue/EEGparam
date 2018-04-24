@@ -51,6 +51,7 @@ RES_PATH = pjoin('/Users/tom/Documents/Research/1-Projects/fooof/2-Data/Results/
 
 # Group specific things
 EXT = '.set' if GROUP == 'G1' else '.bdf'
+N_TIMES = 436 if GROUP == 'G1' else 871
 
 ###################################################################################################
 ###################################################################################################
@@ -62,7 +63,7 @@ def main():
     subj_files = clean_file_list(subj_files, EXT)
 
     # Initialize FOOOF model, used for second FOOOFing
-    fm = FOOOF(peak_width_limits=[1, 6], min_peak_amplitude=0.1)
+    fm = FOOOF(peak_width_limits=[1, 6], min_peak_amplitude=0.1, peak_threshold=1.5)
     fg_dict = {'Load1' : [], 'Load2' : [], 'Load3' : []}
 
     # Initialize FOOOFGroup object, and save out settings file
@@ -70,13 +71,13 @@ def main():
     fg.save('0-FOOOF_Settings', pjoin(RES_PATH, 'FOOOF'), save_settings=True)
 
     # Initialize group level data stores
-    n_subjs, n_conds, n_times = len(subj_files), 3, 436
+    n_subjs, n_conds, n_times = len(subj_files), 3, N_TIMES
     group_fooofed_alpha_freqs = np.zeros(shape=[n_subjs])
     canonical_group_avg_dat = np.zeros(shape=[n_subjs, n_conds, n_times])
     fooofed_group_avg_dat = np.zeros(shape=[n_subjs, n_conds, n_times])
     dropped_trials = np.zeros(shape=[n_subjs, 500])
 
-    for s_ind, subj_file in enumerate(subj_files):
+    for s_ind, subj_file in enumerate(subj_files[4:]):
 
         # Get subject label and print status
         subj_label = subj_file.split('.')[0]
@@ -168,6 +169,10 @@ def main():
         fm = fg.get_fooof(ch_ind, False)
         fooof_freq, _, fooof_bw = get_band_peak(fm.peak_params_, [7, 13])
         group_fooofed_alpha_freqs[s_ind] = fooof_freq
+
+        # If not FOOOF alpha extracted, reset to 10
+        if np.isnan(fooof_freq):
+            fooof_freq = 10
 
         ## ALPHA FILTERING - CANONICAL
 
