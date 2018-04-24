@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 ###################################################################################################
 ###################################################################################################
 
-def plot_alpha_response_compare(canonical_alpha, fooofed_alpha):
+def plot_alpha_response_compare(canonical_alpha, fooofed_alpha, srate):
     """Plot the alpha response results.
 
     Note: both inputs should [n_conds, n_times] matrices.
@@ -14,7 +14,7 @@ def plot_alpha_response_compare(canonical_alpha, fooofed_alpha):
 
     # Plot alpha response between different alpha filters
     f, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=[16, 6])
-    times = np.arange(-0.5, 1.2, 1/256)
+    times = np.arange(-0.5, 1.2, 1/srate)
 
     # Canonical alpha
     ax1.set_title('Canonical Alpha')
