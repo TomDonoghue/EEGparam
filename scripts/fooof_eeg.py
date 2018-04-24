@@ -5,8 +5,7 @@ Notes
 - Open question: baselining?
     - Baseline: -500 - 350
 - All trials average (all subjects), or average of subject averages?
-- Filter individual channels or single frequency estimate per subject
-- Mean vs. Median?
+- Filter individual channels or single frequency estimate per subject?
 """
 
 from os import listdir
@@ -29,9 +28,8 @@ from om.core.utils import clean_file_list
 ###################################################################################################
 ###################################################################################################
 
-# Set paths
-DAT_PATH = '/Users/tom/Documents/Research/1-Projects/fooof/2-Data/EEG/new/'
-RES_PATH = '/Users/tom/Documents/Research/1-Projects/fooof/2-Data/Results/'
+# Set which group to run
+GROUP = 'G2'
 
 # Set up event code dictionary, with key labels for each event type
 EV_DICT = {'LeLo1': [201, 202], 'LeLo2': [205, 206], 'LeLo3': [209, 210],
@@ -47,6 +45,13 @@ CHL = 'Oz'
 # Set FOOOF frequency range
 FREQ_RANGE = [3, 25]
 
+# Set paths
+DAT_PATH = pjoin('/Users/tom/Documents/Data/Voytek_WMData/', GROUP)
+RES_PATH = pjoin('/Users/tom/Documents/Research/1-Projects/fooof/2-Data/Results/', GROUP)
+
+# Group specific things
+EXT = '.set' if GROUP == 'G1' else '.bdf'
+
 ###################################################################################################
 ###################################################################################################
 
@@ -54,11 +59,11 @@ def main():
 
     # Get list of subject files
     subj_files = listdir(DAT_PATH)
-    subj_files = clean_file_list(subj_files, '.set')
+    subj_files = clean_file_list(subj_files, EXT)
 
     # Initialize FOOOF model, used for second FOOOFing
     fm = FOOOF(peak_width_limits=[1, 6], min_peak_amplitude=0.1)
-    fm_dict = {'Load1' : [], 'Load2' : [], 'Load3' : []}
+    fg_dict = {'Load1' : [], 'Load2' : [], 'Load3' : []}
 
     # Initialize FOOOFGroup object, and save out settings file
     fg = FOOOFGroup(peak_width_limits=[1, 8])
@@ -79,11 +84,28 @@ def main():
 
         ## LOAD / ORGANIZE / SET-UP DATA
 
-        # Load subject of data
-        eeg_dat = mne.io.read_raw_eeglab(pjoin(DAT_PATH, subj_file), preload=True, verbose=False)
+        # Load subject of data - and specific fixes for channels and so on depending on group
+        if GROUP == 'G1':
 
-        # Set non-EEG channel types
-        ch_types = {'LO1' : 'eog', 'LO2' : 'eog', 'IO1' : 'eog', 'A1' : 'misc', 'A2' : 'misc'}
+            eeg_dat = mne.io.read_raw_eeglab(pjoin(DAT_PATH, subj_file), preload=True, verbose=False)
+
+            # Set non-EEG channel types
+            ch_types = {'LO1' : 'eog', 'LO2' : 'eog', 'IO1' : 'eog', 'A1' : 'misc', 'A2' : 'misc'}
+
+        if GROUP == 'G2':
+
+            eeg_dat = mne.io.read_raw_edf(pjoin(DAT_PATH, subj_file), preload=True)
+
+            # Fix channel name labels
+            eeg_dat.info['ch_names'] = [chl[2:] for chl in eeg_dat.ch_names[:-1]] + [eeg_dat.ch_names[-1]]
+            for ind, chi in enumerate(eeg_dat.info['chs']):
+                eeg_dat.info['chs'][ind]['ch_name'] = eeg_dat.info['ch_names'][ind]
+
+            # Set channel types
+            ch_types = {'LHor' : 'eog', 'RHor' : 'eog', 'IVer' : 'eog', 'SVer' : 'eog',
+                        'LMas' : 'misc', 'RMas' : 'misc', 'Nose' : 'misc', 'EXG8' : 'misc'}
+
+        # Update channel types
         eeg_dat.set_channel_types(ch_types)
 
         # Set to keep current reference
@@ -98,7 +120,7 @@ def main():
         ev_codes = np.unique(evs[:, 2])
 
         # Pull out sampling rate
-        fs = eeg_dat.info['sfreq']
+        srate = eeg_dat.info['sfreq']
 
         ## SORT OUT EVENT CODES
 
@@ -120,7 +142,7 @@ def main():
         t_min, t_max = -0.4, 3.0
         for ref_id, targ_id, new_id in zip(all_trials, CORR_CODES * 6, all_trials_new):
 
-            t_evs, t_lags = mne.event.define_target_events(evs, ref_id, targ_id, fs,
+            t_evs, t_lags = mne.event.define_target_events(evs, ref_id, targ_id, srate,
                                                            t_min, t_max, new_id)
 
             if len(t_evs) > 0:
@@ -134,7 +156,7 @@ def main():
 
         # Calculate PSDs over ~ first 2 minutes of data, for specified channel
         psds, freqs = mne.time_frequency.psd_welch(eeg_dat, fmin=2, fmax=40, tmin=0 ,tmax=120,
-                                                   n_fft=512, n_overlap=256, verbose=False)
+                                                   n_fft=int(2*srate), n_overlap=int(srate), verbose=False)
 
         # Fit FOOOF to across all channels
         fg.fit(freqs, psds, FREQ_RANGE, n_jobs=-1)
@@ -155,7 +177,6 @@ def main():
         alpha_dat.apply_hilbert(envelope=True, verbose=False)
 
         ## ALPHA FILTERING - FOOOF
-        # TODO: add filtering of each channel individually
 
         # Filter data to FOOOF derived alpha band
         fooof_dat = eeg_dat.copy()
@@ -171,15 +192,15 @@ def main():
 
         # Epoch trials - raw data for trial rejection
         epochs = mne.Epochs(eeg_dat, evs2, ev_dict2, tmin=tmin, tmax=tmax,
-                            baseline=None, preload=True, verbose=False)
+                            baseline=(-0.5, -0/25), preload=True, verbose=False)
 
         # Epoch trials - filtered version
         epochs_alpha = mne.Epochs(alpha_dat, evs2, ev_dict2, tmin=tmin, tmax=tmax,
-                                  baseline=(-0.4, 0), preload=True, verbose=False);
+                                  baseline=(-0.5, -0.35), preload=True, verbose=False);
         epochs_fooof = mne.Epochs(fooof_dat, evs2, ev_dict2, tmin=tmin, tmax=tmax,
-                                  baseline=(-0.4, 0), preload=True, verbose=False);
+                                  baseline=(-0.5, -0.35), preload=True, verbose=False);
 
-        # ## PRE-PROCESSING: AUTO-REJECT
+        ## PRE-PROCESSING: AUTO-REJECT
 
         # Initialize and run autoreject across epochs
         ar = LocalAutoRejectCV()
@@ -218,9 +239,6 @@ def main():
         lo3_f = np.concatenate([epochs_fooof['LeLo3']._data[:, ri_inds, :],
                                 epochs_fooof['RiLo3']._data[:, le_inds, :]], 0)
 
-        # TODO: Add collecting of all trials, across all subjects
-        #canonical_group_dat[s_ind, 0] = canonical_group_dat.append(lo1_a)
-
         # Calculate average across trials and channels - add to group data collection
         # Canonical data
         canonical_group_avg_dat[s_ind, 0, :] = np.mean(lo1_a, 1).mean(0)
@@ -231,31 +249,36 @@ def main():
         fooofed_group_avg_dat[s_ind, 1, :] = np.mean(lo2_f, 1).mean(0)
         fooofed_group_avg_dat[s_ind, 2, :] = np.mean(lo3_f, 1).mean(0)
 
-        # OTHER FOOOFING
+        ## FOOOFING TRIAL AVERAGED DATA
+
+        # Settings for trial average FOOOFing
+        fmin, fmax = 3, 25
+        tmin, tmax = -0.1, 1.1
+        n_fft, n_overlap, n_per_seg = 4*srate, srate/2, srate*2
+
+        # Calculate PSDs across trials, fit FOOOF models to averages
         for le_label, ri_label, load in zip(['LeLo1', 'LeLo2', 'LeLo3'],
                                             ['RiLo1', 'RiLo2', 'RiLo3'],
                                             ['Load1', 'Load2', 'Load3']):
 
             # Calculate trial wise PSDs - left side trials
-            le_trial_psds, trial_freqs = mne.time_frequency.psd_welch(epochs[le_label], 4, 25, tmin=-0.5, tmax=1.2,
-                                                                      n_fft=1024, n_overlap=256, n_per_seg=1024,
+            le_trial_psds, trial_freqs = mne.time_frequency.psd_welch(epochs[le_label], fmin, fmax, tmin=tmin, tmax=tmax,
+                                                                      n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg,
                                                                       verbose=False)
             le_avg_psd = np.mean(le_trial_psds[:, ri_inds, :], 0).mean(0)
-            #le_avg_psd = np.median(np.median(le_trial_psds[:, ri_inds, :], 0), 0)
 
             # Calculate trial wise PSDs - right side trials
-            ri_trial_psds, trial_freqs = mne.time_frequency.psd_welch(epochs[ri_label], 4, 25, tmin=-0.5, tmax=1.2,
-                                                                      n_fft=1024, n_overlap=256, n_per_seg=1024,
+            ri_trial_psds, trial_freqs = mne.time_frequency.psd_welch(epochs[ri_label], fmin, fmax, tmin=tmin, tmax=tmax,
+                                                                      n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg,
                                                                       verbose=False)
             ri_avg_psd = np.mean(ri_trial_psds[:, le_inds, :], 0).mean(0)
-            #ri_avg_psd = np.median(np.median(ri_trial_psds[:, le_inds, :], 0), 0)
 
             # Collapse PSD across left & right trials for given load
             avg_psd = np.mean(np.vstack([le_avg_psd, ri_avg_psd]), 0)
 
             # FOOOF
             fm.fit(trial_freqs, avg_psd)
-            fm_dict[load].append(fm.copy())
+            fg_dict[load].append(fm.copy())
 
     # Save out group data
     np.save(pjoin(RES_PATH, 'Group', 'alpha_freqs_group'), group_fooofed_alpha_freqs)
@@ -265,7 +288,7 @@ def main():
 
     # Save out second round of FOOOFing
     for load in ['Load1', 'Load2', 'Load3']:
-        fg = combine_fooofs(fm_dict[load])
+        fg = combine_fooofs(fg_dict[load])
         fg.save('Group_' + load, pjoin(RES_PATH, 'FOOOF'), save_results=True)
 
 
