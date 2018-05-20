@@ -12,9 +12,11 @@ from os import listdir
 from os.path import join as pjoin
 
 import numpy as np
+from scipy.signal import periodogram
 
 # MNE & Associated Code
 import mne
+from mne.utils import _time_mask
 from autoreject import LocalAutoRejectCV
 
 # FOOOF & Associated Code
@@ -35,6 +37,12 @@ GROUP = 'G2'
 EV_DICT = {'LeLo1': [201, 202], 'LeLo2': [205, 206], 'LeLo3': [209, 210],
            'RiLo1': [203, 204], 'RiLo2': [207, 208], 'RiLo3': [211, 212]}
 
+# Set labels & definitions
+LOAD_LABELS = ['Load1', 'Load2', 'Load3']
+SIDE_LABELS = ['Contra', 'Ipsi']
+SEG_LABELS = ['Pre', 'Early', 'Late']
+SEG_TIMES = [(-0.85, -0.35), (0.1, 0.6), (0.5, 1.0)]
+
 # Event codes for correct and incorrect codes
 CORR_CODES = [2, 1]
 INCO_CODES = [102, 101]
@@ -51,7 +59,7 @@ RES_PATH = pjoin('/Users/tom/Documents/Research/1-Projects/fooof/2-Data/Results/
 
 # Group specific things
 EXT = '.set' if GROUP == 'G1' else '.bdf'
-N_TIMES = 436 if GROUP == 'G1' else 871
+N_TIMES = 538 if GROUP == 'G1' else 999
 
 ###################################################################################################
 ###################################################################################################
@@ -62,22 +70,33 @@ def main():
     subj_files = listdir(DAT_PATH)
     subj_files = clean_file_list(subj_files, EXT)
 
-    # Initialize FOOOF model, used for second FOOOFing
-    fm = FOOOF(peak_width_limits=[1, 6], min_peak_amplitude=0.1, peak_threshold=1.5)
-    fg_dict = {'Load1' : [], 'Load2' : [], 'Load3' : []}
-
     # Initialize FOOOFGroup object, and save out settings file
+    #  This is the FOOOF object used for first FOOOFing (across all channels)
     fg = FOOOFGroup(peak_width_limits=[1, 8])
     fg.save('0-FOOOF_Settings', pjoin(RES_PATH, 'FOOOF'), save_settings=True)
+
+    # Initialize FOOOF model, used for second FOOOFing
+    fm = FOOOF(peak_width_limits=[1, 6], min_peak_amplitude=0.1, peak_threshold=1.5)
+
+    # Set up the dictionary to store all the FOOOF results
+    fg_dict = dict()
+    for load_label in LOAD_LABELS:
+        fg_dict[load_label] = dict()
+        for side_label in SIDE_LABELS:
+            fg_dict[load_label][side_label] = dict()
+            for seg_label in SEG_LABELS:
+                fg_dict[load_label][side_label][seg_label] = []
 
     # Initialize group level data stores
     n_subjs, n_conds, n_times = len(subj_files), 3, N_TIMES
     group_fooofed_alpha_freqs = np.zeros(shape=[n_subjs])
+    dropped_trials = np.zeros(shape=[n_subjs, 1500])
+
     canonical_group_avg_dat = np.zeros(shape=[n_subjs, n_conds, n_times])
     fooofed_group_avg_dat = np.zeros(shape=[n_subjs, n_conds, n_times])
-    dropped_trials = np.zeros(shape=[n_subjs, 500])
 
-    for s_ind, subj_file in enumerate(subj_files[4:]):
+
+    for s_ind, subj_file in enumerate(subj_files):
 
         # Get subject label and print status
         subj_label = subj_file.split('.')[0]
@@ -186,18 +205,17 @@ def main():
         # Filter data to FOOOF derived alpha band
         fooof_dat = eeg_dat.copy()
         fooof_dat.filter(fooof_freq-2, fooof_freq+2, fir_design='firwin')
-        #fooof_dat.filter(fooof_freq-1.5*fooof_bw, fooof_freq+1.5*fooof_bw, fir_design='firwin', verbose=False)
         fooof_dat.apply_hilbert(envelope=True)
 
         ## EPOCH TRIALS
 
         # Set epoch timings
-        #  Note: not sure of exact / best range to run on. This is the range auto-reject sees.
-        tmin, tmax = -0.5, 1.2
+        tmin, tmax = -0.85, 1.1
 
         # Epoch trials - raw data for trial rejection
         epochs = mne.Epochs(eeg_dat, evs2, ev_dict2, tmin=tmin, tmax=tmax,
-                            baseline=(-0.5, -0/25), preload=True, verbose=False)
+                            baseline=None, preload=True, verbose=False)
+                            #baseline=(-0.5, -0.35), preload=True, verbose=False)
 
         # Epoch trials - filtered version
         epochs_alpha = mne.Epochs(alpha_dat, evs2, ev_dict2, tmin=tmin, tmax=tmax,
@@ -205,7 +223,7 @@ def main():
         epochs_fooof = mne.Epochs(fooof_dat, evs2, ev_dict2, tmin=tmin, tmax=tmax,
                                   baseline=(-0.5, -0.35), preload=True, verbose=False);
 
-        ## PRE-PROCESSING: AUTO-REJECT
+        # ## PRE-PROCESSING: AUTO-REJECT
 
         # Initialize and run autoreject across epochs
         ar = LocalAutoRejectCV()
@@ -257,33 +275,59 @@ def main():
         ## FOOOFING TRIAL AVERAGED DATA
 
         # Settings for trial average FOOOFing
-        fmin, fmax = 3, 25
-        tmin, tmax = -0.1, 1.1
-        n_fft, n_overlap, n_per_seg = 4*srate, srate/2, srate*2
+        fmin, fmax = 4, 25
 
-        # Calculate PSDs across trials, fit FOOOF models to averages
-        for le_label, ri_label, load in zip(['LeLo1', 'LeLo2', 'LeLo3'],
-                                            ['RiLo1', 'RiLo2', 'RiLo3'],
-                                            ['Load1', 'Load2', 'Load3']):
+        # PSD creation settings
+        #n_fft, n_overlap, n_per_seg = 4*srate, srate/2, srate*2
+        #n_fft, n_overlap, n_per_seg = 4*srate, srate/4, srate
 
-            # Calculate trial wise PSDs - left side trials
-            le_trial_psds, trial_freqs = mne.time_frequency.psd_welch(epochs[le_label], fmin, fmax, tmin=tmin, tmax=tmax,
-                                                                      n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg,
-                                                                      verbose=False)
-            le_avg_psd = np.mean(le_trial_psds[:, ri_inds, :], 0).mean(0)
+        # Loop loop loads & trials segments
+        for seg_label, seg_time in zip(SEG_LABELS, SEG_TIMES):
+            tmin, tmax = seg_time[0], seg_time[1]
 
-            # Calculate trial wise PSDs - right side trials
-            ri_trial_psds, trial_freqs = mne.time_frequency.psd_welch(epochs[ri_label], fmin, fmax, tmin=tmin, tmax=tmax,
-                                                                      n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg,
-                                                                      verbose=False)
-            ri_avg_psd = np.mean(ri_trial_psds[:, le_inds, :], 0).mean(0)
+            # Calculate PSDs across trials, fit FOOOF models to averages
+            for le_label, ri_label, load_label in zip(['LeLo1', 'LeLo2', 'LeLo3'],
+                                                      ['RiLo1', 'RiLo2', 'RiLo3'],
+                                                      LOAD_LABELS):
 
-            # Collapse PSD across left & right trials for given load
-            avg_psd = np.mean(np.vstack([le_avg_psd, ri_avg_psd]), 0)
+                # Calculate trial wise PSDs - left side trials
+                #le_trial_psds, trial_freqs = mne.time_frequency.psd_welch(
+                #    epochs[le_label], fmin, fmax, tmin=tmin, tmax=tmax,
+                #    n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg, verbose=False)
+                trial_freqs, le_trial_psds = periodogram(
+                    epochs[le_label]._data[:, :, _time_mask(epochs.times, tmin, tmax, srate)],
+                    srate, window='hann', nfft=4*srate)
 
-            # FOOOF
-            fm.fit(trial_freqs, avg_psd)
-            fg_dict[load].append(fm.copy())
+                #le_avg_psd = np.mean(le_trial_psds[:, ri_inds, :], 0).mean(0)
+                le_avg_psd_contra = np.mean(le_trial_psds[:, ri_inds, :], 0).mean(0)
+                le_avg_psd_ipsi = np.mean(le_trial_psds[:, le_inds, :], 0).mean(0)
+
+                # Calculate trial wise PSDs - right side trials
+                #ri_trial_psds, trial_freqs = mne.time_frequency.psd_welch(
+                #    epochs[ri_label], fmin, fmax, tmin=tmin, tmax=tmax,
+                #    n_fft=n_fft, n_overlap=n_overlap, n_per_seg=n_per_seg, verbose=False)
+                trial_freqs, ri_trial_psds = periodogram(
+                    epochs[ri_label]._data[:, :, _time_mask(epochs.times, tmin, tmax, srate)],
+                    srate, window='hann', nfft=4*srate)
+
+                #ri_avg_psd = np.mean(ri_trial_psds[:, le_inds, :], 0).mean(0)
+                ri_avg_psd_contra = np.mean(ri_trial_psds[:, le_inds, :], 0).mean(0)
+                ri_avg_psd_ipsi = np.mean(ri_trial_psds[:, ri_inds, :], 0).mean(0)
+
+                # Collapse PSD across left & right trials for given load
+                #avg_psd = np.mean(np.vstack([le_avg_psd, ri_avg_psd]), 0)
+                avg_psd_contra = np.mean(np.vstack([le_avg_psd_contra, ri_avg_psd_contra]), 0)
+                avg_psd_ipsi = np.mean(np.vstack([le_avg_psd_ipsi, ri_avg_psd_ipsi]), 0)
+
+                # Fit FOOOF & save out results
+                #fm.fit(trial_freqs, avg_psd)
+                fm.fit(trial_freqs, avg_psd_contra, [fmin,fmax])
+                fg_dict[load_label]['Contra'][seg_label].append(fm.copy())
+                fm.fit(trial_freqs, avg_psd_ipsi, [fmin, fmax])
+                fg_dict[load_label]['Ipsi'][seg_label].append(fm.copy())
+
+                # Collet FOOOF results
+                #fg_dict[load_label][seg_label].append(fm.copy())
 
     # Save out group data
     np.save(pjoin(RES_PATH, 'Group', 'alpha_freqs_group'), group_fooofed_alpha_freqs)
@@ -292,10 +336,12 @@ def main():
     np.save(pjoin(RES_PATH, 'Group', 'dropped_trials'), dropped_trials)
 
     # Save out second round of FOOOFing
-    for load in ['Load1', 'Load2', 'Load3']:
-        fg = combine_fooofs(fg_dict[load])
-        fg.save('Group_' + load, pjoin(RES_PATH, 'FOOOF'), save_results=True)
-
+    for load_label in LOAD_LABELS:
+        for side_label in SIDE_LABELS:
+            for seg_label in SEG_LABELS:
+                fg = combine_fooofs(fg_dict[load_label][side_label][seg_label])
+                fg.save('Group_' + load_label + '_' + side_label + '_' + seg_label,
+                    pjoin(RES_PATH, 'FOOOF'), save_results=True)
 
 if __name__ == "__main__":
     main()
