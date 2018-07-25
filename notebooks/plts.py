@@ -299,3 +299,45 @@ def plot_sl_band_diff(freqs, model_bgs, save_fig=False, save_name=None):
     if save_fig:
         save_name = 'plts/' + save_name + '.pdf'
         plt.savefig(save_name, bbox_inches='tight', dpi=300)
+
+
+def plot_overlap(m1, m2, std1, std2, save_fig=False, save_name=None):
+    """Visualize the overlap of two gaussians."""
+
+    # Get point of overlap
+    r = get_intersect(m1, m2, std1, std2)
+
+    # Initialize plot
+    fig, ax = plt.subplots(figsize=[8, 6])
+
+    ax.set_xlim([0, 20.])
+    ax.set_ylim([0, 0.21])
+
+    x = np.linspace(0, 20, 1000)
+    step = x[1] - x[0]
+
+    plot1 = plt.plot(x, norm.pdf(x, m1, std1), 'grey', lw=2.5, label='Canonical')
+    plot2 = plt.plot(x, norm.pdf(x, m2, std2), 'black', lw=2.5, label='Average')
+    #plot3 = plt.plot(r, norm.pdf(r, m1, std1), markersize=22)#, 'o')
+
+    # Shade in overlapping area
+    _ = plt.fill_between(x[x>r-step], 0, norm.pdf(x[x>r-step], m1, std1), alpha=0.7, color='#2ba848', lw=0)
+    _ = plt.fill_between(x[x<r], 0, norm.pdf(x[x<r], m2, std2), alpha=0.7, color='#2ba848', lw=0)
+    _ = plt.fill_between(x[x<r], norm.pdf(x[x<r], m2, std2), norm.pdf(x[x<r], m1, std1),
+                     alpha=0.7, color='#d10c29', lw=0)
+
+    # Set the top and right side frame & ticks off
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+
+    # Set linewidth of remaining spines
+    ax.spines['left'].set_linewidth(2)
+    ax.spines['bottom'].set_linewidth(2)
+
+    plt.legend()
+
+    if save_fig:
+        save_name = 'plts/' + save_name + '.pdf'
+        plt.savefig(save_name, bbox_inches='tight', dpi=300)
