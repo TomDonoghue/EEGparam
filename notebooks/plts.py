@@ -3,9 +3,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from scipy.stats import sem
+from scipy.stats import ttest_ind, sem
+from scipy.stats import norm
 
 from fooof.core.funcs import gaussian_function, expo_nk_function
+
+from utils import get_intersect
 
 ###################################################################################################
 ###################################################################################################
