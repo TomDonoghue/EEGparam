@@ -62,7 +62,7 @@ EOG_CHS = ['LHor', 'RHor', 'IVer', 'SVer']
 FREQ_RANGE = [3, 25]
 
 # FOOOF Settings
-PEAK_WIDTH_LIMTS = [1, 8]
+PEAK_WIDTH_LIMITS = [1, 6]
 MAX_N_PEAKS = 6
 MIN_PEAK_AMP = 0.05
 PEAK_THRESHOLD = 1.5
@@ -86,13 +86,13 @@ def main():
 
     # Initialize FOOOFGroup object, and save out settings file
     #  This is the one used for first FOOOFing (across all channels - 2 minute 'rest data')
-    fg = FOOOFGroup(peak_width_limits=PEAK_WIDTH_LIMTS, max_n_peaks=MAX_N_PEAKS,
+    fg = FOOOFGroup(peak_width_limits=PEAK_WIDTH_LIMITS, max_n_peaks=MAX_N_PEAKS,
                     min_peak_amplitude=MIN_PEAK_AMP, peak_threshold=PEAK_THRESHOLD)
     fg.save('0-FOOOF_Settings', pjoin(RES_PATH, 'FOOOF'), save_settings=True)
 
     # Initialize FOOOF model, used for second FOOOFing
     #  This is the one used for the task related, epoched data
-    fm = FOOOF(peak_width_limits=PEAK_WIDTH_LIMTS, max_n_peaks=MAX_N_PEAKS,
+    fm = FOOOF(peak_width_limits=PEAK_WIDTH_LIMITS, max_n_peaks=MAX_N_PEAKS,
                min_peak_amplitude=MIN_PEAK_AMP, peak_threshold=PEAK_THRESHOLD)
 
     # Set up the dictionary to store all the FOOOF results
@@ -145,9 +145,8 @@ def main():
         # Update channel types
         eeg_dat.set_channel_types(ch_types)
 
-        # Set reference
-        eeg_dat.set_eeg_reference(ref_channels=[], projection=False, verbose=False)
-        #eeg_dat.set_eeg_reference(['LMas', 'Rmas'], projection=False, verbose=False)
+        # Set reference - average reference
+        eeg_dat = eeg_dat.set_eeg_reference(ref_channels='average', projection=False, verbose=False)
 
         # Set channel montage
         chs = mne.channels.read_montage('standard_1020', eeg_dat.ch_names)
@@ -234,6 +233,7 @@ def main():
         psds, freqs = mne.time_frequency.psd_welch(eeg_dat, fmin=fmin, fmax=fmax,
                                                    tmin=tmin ,tmax=tmax,
                                                    n_fft=int(2*srate), n_overlap=int(srate),
+                                                   n_per_seg=int(2*srate),
                                                    verbose=False)
 
         # Fit FOOOF across all channels
@@ -244,7 +244,7 @@ def main():
 
         # Extract individualized CF from specified channel, add to group collection
         fm = fg.get_fooof(ch_ind, False)
-        fooof_freq, _, fooof_bw = get_band_peak(fm.peak_params_, [7, 13])
+        fooof_freq, _, fooof_bw = get_band_peak(fm.peak_params_, [7, 14])
         group_fooofed_alpha_freqs[s_ind] = fooof_freq
 
         # If not FOOOF alpha extracted, reset to 10
