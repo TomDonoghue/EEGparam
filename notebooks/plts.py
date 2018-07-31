@@ -16,6 +16,9 @@ from utils import get_intersect
 YNG_INDS = range(14, 31)
 OLD_INDS = range(0, 14)
 
+YOU_COL = "#0d82c1"
+OLD_COL = "#239909"
+
 ###################################################################################################
 ###################################################################################################
 
@@ -67,11 +70,11 @@ def plot_comp_boxplot(dat):
                         labels=['Young', 'Old'])
 
     # Fill boxplots with colors
-    you_col = "#0d82c1"
-    old_col = "#239909"
+    YOU_COL = "#0d82c1"
+    OLD_COL = "#239909"
 
     # Set colors of the boxes
-    colors = [you_col, old_col]
+    colors = [YOU_COL, OLD_COL]
     for box, color in zip(bplot['boxes'], colors):
         box.set_facecolor(color)
 
@@ -184,9 +187,6 @@ def plot_background(bgs, save_fig=False, save_name=None):
 
     n_subjs = bgs.shape[0]
 
-    you_col = "#0d82c1"
-    old_col = "#239909"
-
     # Set offset to be zero across all PSDs
     tbgs = np.copy(bgs)
     tbgs[:, 0] = 1
@@ -207,14 +207,14 @@ def plot_background(bgs, save_fig=False, save_name=None):
 
     # Plot each individual subject
     for ind in range(n_subjs):
-        lc = you_col if ind in YNG_INDS else old_col
+        lc = YOU_COL if ind in YNG_INDS else OLD_COL
         ax.plot(fs, bg_psds[ind, :], lc, alpha=0.2, linewidth=1.5)
 
     # Plot the average across all subjects, split up by age group
     you_avg = np.mean(bg_psds[YNG_INDS, :], 0)
     old_avg = np.mean(bg_psds[OLD_INDS, :], 0)
-    ax.plot(fs, you_avg, you_col, linewidth=4, label='Young')
-    ax.plot(fs, old_avg, old_col, linewidth=4, label='Old')
+    ax.plot(fs, you_avg, YOU_COL, linewidth=4, label='Young')
+    ax.plot(fs, old_avg, OLD_COL, linewidth=4, label='Old')
 
     ax.set_xlabel('Frequency', {'fontsize': 14, 'fontweight':'bold'})
     ax.set_ylabel('Power', {'fontsize': 14, 'fontweight':'bold'})
@@ -339,7 +339,48 @@ def plot_overlap(m1, m2, std1, std2, save_fig=False, save_name=None):
     ax.spines['left'].set_linewidth(2)
     ax.spines['bottom'].set_linewidth(2)
 
-    plt.legend()
+    plt.legend(fontsize=12)
+
+    if save_fig:
+        save_name = 'plts/' + save_name + '.pdf'
+        plt.savefig(save_name, bbox_inches='tight', dpi=300)
+
+
+def plot_task_response(dat, title='', save_fig=False, save_name=None):
+    """   """
+
+    # Set average function to use
+    avg_func = np.median
+
+    fig, ax = fig, ax = plt.subplots(figsize=[6, 4])
+
+    base_yng = np.repeat(dat[:, YNG_INDS, 0], 3).reshape(3, len(YNG_INDS), 3)
+    base_old = np.repeat(dat[:, OLD_INDS, 0], 3).reshape(3, len(OLD_INDS), 3)
+
+    t_dat_yng = dat[:, YNG_INDS, :] - base_yng
+    t_dat_old = dat[:, OLD_INDS, :] - base_old
+
+    avg_dat_yng = avg_func(avg_func(t_dat_yng, 0), 0)
+    avg_dat_old = avg_func(avg_func(t_dat_old, 0), 0)
+
+    plt.plot([0, 1, 2], avg_dat_yng, YOU_COL, lw=2.5, label='Yng')
+    plt.plot([0, 1, 2], avg_dat_old, OLD_COL, lw=2.5, label='Old')
+
+    plt.title(title + ' Response', fontsize=16, fontweight='bold')
+
+    plt.xticks([0, 1, 2], ['Pre', 'Early', 'Late']);
+
+    # Set tick fontsizes
+    plt.setp(ax.get_xticklabels(), fontsize=14, fontweight='bold')
+    plt.setp(ax.get_yticklabels(), fontsize=12)
+
+    # Set the top and right side frame & ticks off
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+
+    plt.legend(fontsize=12)
 
     if save_fig:
         save_name = 'plts/' + save_name + '.pdf'
