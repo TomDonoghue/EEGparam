@@ -1,7 +1,9 @@
 """"Helper / utility functions for EEG-FOOOF."""
 
 import numpy as np
-from scipy.stats import norm
+from scipy.stats import norm, ttest_ind
+
+from settings import YNG_INDS, OLD_INDS
 
 ###################################################################################################
 ###################################################################################################
