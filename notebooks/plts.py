@@ -8,16 +8,8 @@ from scipy.stats import norm
 
 from fooof.core.funcs import gaussian_function, expo_nk_function
 
-from utils import get_intersect
-
-###################################################################################################
-###################################################################################################
-
-YNG_INDS = range(14, 31)
-OLD_INDS = range(0, 14)
-
-YNG_COL = "#0d82c1"
-OLD_COL = "#239909"
+from utils import get_intersect, get_pval_shades, calc_bg_comps
+from settings import *
 
 ###################################################################################################
 ###################################################################################################
@@ -224,7 +216,7 @@ def plot_background(bgs, control_offset=False, save_fig=False, save_name=None):
     ax.plot(fs, old_avg, OLD_COL, linewidth=4, label='Old')
 
     # Shade regions of siginificant difference
-    avg_diffs, p_vals = bg_comps(fs, bg_psds)
+    avg_diffs, p_vals = calc_bg_comps(fs, bg_psds)
     sh_starts, sh_ends = get_pval_shades(fs, p_vals)
     _plt_shade_regions(sh_starts, sh_ends)
 

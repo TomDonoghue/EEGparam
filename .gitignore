@@ -5,5 +5,8 @@
 */__pycache__/*
 cachedir/*
 
+# Ignore plot outputs
+*.pdf
+
 # Ignore mac directory files
 .DS_Store
