@@ -15,15 +15,16 @@ from scipy.signal import periodogram
 
 # MNE & Associated Code
 import mne
-from mne.preprocessing import ICA
+from mne.preprocessing import ICA, read_ica
 from mne.utils import _time_mask
 
-from autoreject import AutoReject
+from autoreject import AutoReject, read_auto_reject
+from autoreject.autoreject import _apply_interp
 
 # FOOOF & Associated Code
 from fooof import FOOOF, FOOOFGroup
 from fooof.analysis import get_band_peak
-from fooof.utils import combine_fooofs
+from fooof.funcs import combine_fooofs
 
 # Other custom code
 from om.core.utils import clean_file_list
@@ -31,12 +32,13 @@ from om.core.utils import clean_file_list
 ###################################################################################################
 ###################################################################################################
 
+#################################################
+## SETTINGS
+
 # Processing Options
+#   Note: by default, if set to false, this will apply a saved solution for ICA & AR
 RUN_ICA = True
 RUN_AUTOREJECT = True
-
-# Set which group to run
-GROUP = 'G2'
 
 # Set up event code dictionary, with key labels for each event type
 EV_DICT = {'LeLo1': [201, 202], 'LeLo2': [205, 206], 'LeLo3': [209, 210],
@@ -68,17 +70,20 @@ MIN_PEAK_AMP = 0.05
 PEAK_THRESHOLD = 1.5
 
 # Set paths
-DAT_PATH = pjoin('/Users/tom/Documents/Data/Voytek_WMData/', GROUP)
-RES_PATH = pjoin('/Users/tom/Documents/Research/1-Projects/fooof/2-Data/Results/', GROUP)
+DAT_PATH = '/Users/tom/Documents/Data/Voytek_WMData/G2/'
+RES_PATH = '/Users/tom/Documents/Research/1-Projects/fooof/2-Data/Results/'
 
-# Group specific things
-EXT = '.set' if GROUP == 'G1' else '.bdf'
-N_TIMES = 538 if GROUP == 'G1' else 999
+# Data settings
+EXT = '.bdf'
+N_TIMES = 999
 
 ###################################################################################################
 ###################################################################################################
 
 def main():
+
+    #################################################
+    ## SETUP
 
     # Get list of subject files
     subj_files = listdir(DAT_PATH)
@@ -107,19 +112,17 @@ def main():
     # Initialize group level data stores
     n_subjs, n_conds, n_times = len(subj_files), 3, N_TIMES
     group_fooofed_alpha_freqs = np.zeros(shape=[n_subjs])
-    dropped_components = np.zeros(shape=[n_subjs, 50])
-    dropped_trials = np.zeros(shape=[n_subjs, 1500])
+    dropped_components = np.ones(shape=[n_subjs, 50]) * 999
+    dropped_trials = np.ones(shape=[n_subjs, 1500]) * 999
     canonical_group_avg_dat = np.zeros(shape=[n_subjs, n_conds, n_times])
     fooofed_group_avg_dat = np.zeros(shape=[n_subjs, n_conds, n_times])
 
-    # Set channel types, based on group
-    if GROUP == 'G1':
-        # Set non-EEG channel types
-        ch_types = {'LO1' : 'eog', 'LO2' : 'eog', 'IO1' : 'eog', 'A1' : 'misc', 'A2' : 'misc'}
-    if GROUP == 'G2':
-        # Set channel types
-        ch_types = {'LHor' : 'eog', 'RHor' : 'eog', 'IVer' : 'eog', 'SVer' : 'eog',
-                    'LMas' : 'misc', 'RMas' : 'misc', 'Nose' : 'misc', 'EXG8' : 'misc'}
+    # Set channel types
+    ch_types = {'LHor' : 'eog', 'RHor' : 'eog', 'IVer' : 'eog', 'SVer' : 'eog',
+                'LMas' : 'misc', 'RMas' : 'misc', 'Nose' : 'misc', 'EXG8' : 'misc'}
+
+    #################################################
+    ## RUN ACROSS ALL SUBJECTS
 
     # Run analysis across each subject
     for s_ind, subj_file in enumerate(subj_files):
@@ -128,25 +131,25 @@ def main():
         subj_label = subj_file.split('.')[0]
         print('\nCURRENTLY RUNNING SUBJECT: ', subj_label, '\n')
 
+        #################################################
         ## LOAD / ORGANIZE / SET-UP DATA
 
-        # Load subject of data - and specific fixes for channels and so on depending on group
-        if GROUP == 'G1':
-            eeg_dat = mne.io.read_raw_eeglab(pjoin(DAT_PATH, subj_file), preload=True, verbose=False)
+        # Load subject of data, apply apply fixes for channels, etc
+        eeg_dat = mne.io.read_raw_edf(pjoin(DAT_PATH, subj_file),
+                                      preload=True, verbose=False)
 
-        if GROUP == 'G2':
-            eeg_dat = mne.io.read_raw_edf(pjoin(DAT_PATH, subj_file), preload=True, verbose=False)
-
-            # Fix channel name labels
-            eeg_dat.info['ch_names'] = [chl[2:] for chl in eeg_dat.ch_names[:-1]] + [eeg_dat.ch_names[-1]]
-            for ind, chi in enumerate(eeg_dat.info['chs']):
-                eeg_dat.info['chs'][ind]['ch_name'] = eeg_dat.info['ch_names'][ind]
+        # Fix channel name labels
+        eeg_dat.info['ch_names'] = [chl[2:] for chl in \
+            eeg_dat.ch_names[:-1]] + [eeg_dat.ch_names[-1]]
+        for ind, chi in enumerate(eeg_dat.info['chs']):
+            eeg_dat.info['chs'][ind]['ch_name'] = eeg_dat.info['ch_names'][ind]
 
         # Update channel types
         eeg_dat.set_channel_types(ch_types)
 
         # Set reference - average reference
-        eeg_dat = eeg_dat.set_eeg_reference(ref_channels='average', projection=False, verbose=False)
+        eeg_dat = eeg_dat.set_eeg_reference(ref_channels='average',
+                                            projection=False, verbose=False)
 
         # Set channel montage
         chs = mne.channels.read_montage('standard_1020', eeg_dat.ch_names)
@@ -159,8 +162,11 @@ def main():
         # Pull out sampling rate
         srate = eeg_dat.info['sfreq']
 
+        #################################################
         ## Pre-Processing: ICA
         if RUN_ICA:
+
+            print("\nICA: CALCULATING SOLUTION\n")
 
             # ICA settings
             method = 'fastica'
@@ -169,7 +175,8 @@ def main():
             reject = {'eeg': 20e-4}
 
             # Initialize ICA object
-            ica = ICA(n_components=n_components, method=method, random_state=random_state)
+            ica = ICA(n_components=n_components, method=method,
+                      random_state=random_state)
 
             # High-pass filter data for running ICA
             eeg_dat.filter(l_freq=1., h_freq=None, fir_design='firwin');
@@ -177,24 +184,30 @@ def main():
             # Fit ICA
             ica.fit(eeg_dat, reject=reject)
 
-            # Find components to drop, based on correlation with EOG channels
-            drop_inds = []
-            for chi in EOG_CHS:
-                inds, scores = ica.find_bads_eog(eeg_dat, ch_name=chi, threshold=2.5,
-                                                 l_freq=1, h_freq=10, verbose=False)
-                drop_inds.extend(inds)
-            drop_inds = list(set(drop_inds))
-
-            # Set which components to drop, and collect record of this
-            ica.exclude = drop_inds
-            dropped_components[s_ind, 0:len(drop_inds)] = drop_inds
-
             # Save out ICA solution
             ica.save(pjoin(RES_PATH, 'ICA', subj_label + '-ica.fif'))
 
-            # Apply ICA to data
-            eeg_dat = ica.apply(eeg_dat);
+        # Otherwise: load previously saved ICA to apply
+        else:
+            print("\nICA: USING PRECOMPUTED\n")
+            ica = read_ica(pjoin(RES_PATH, 'ICA', subj_label + '-ica.fif'))
 
+        # Find components to drop, based on correlation with EOG channels
+        drop_inds = []
+        for chi in EOG_CHS:
+            inds, scores = ica.find_bads_eog(eeg_dat, ch_name=chi, threshold=2.5,
+                                             l_freq=1, h_freq=10, verbose=False)
+            drop_inds.extend(inds)
+        drop_inds = list(set(drop_inds))
+
+        # Set which components to drop, and collect record of this
+        ica.exclude = drop_inds
+        dropped_components[s_ind, 0:len(drop_inds)] = drop_inds
+
+        # Apply ICA to data
+        eeg_dat = ica.apply(eeg_dat);
+
+        #################################################
         ## SORT OUT EVENT CODES
 
         # Extract a list of all the event labels
@@ -222,6 +235,7 @@ def main():
                 evs2 = np.vstack([evs2, t_evs])
                 lags = np.concatenate([lags, t_lags])
 
+        #################################################
         ## FOOOF
 
         # Set channel of interest
@@ -251,20 +265,20 @@ def main():
         if np.isnan(fooof_freq):
             fooof_freq = 10
 
-        ## ALPHA FILTERING - CANONICAL
+        #################################################
+        ## ALPHA FILTERING
 
-        # Filter data to canonical alpha band: 8-12 Hz
+        # CANONICAL: Filter data to canonical alpha band: 8-12 Hz
         alpha_dat = eeg_dat.copy()
         alpha_dat.filter(8, 12, fir_design='firwin', verbose=False)
         alpha_dat.apply_hilbert(envelope=True, verbose=False)
 
-        ## ALPHA FILTERING - FOOOF
-
-        # Filter data to FOOOF derived alpha band
+        # FOOOF: Filter data to FOOOF derived alpha band
         fooof_dat = eeg_dat.copy()
         fooof_dat.filter(fooof_freq-2, fooof_freq+2, fir_design='firwin')
         fooof_dat.apply_hilbert(envelope=True)
 
+        #################################################
         ## EPOCH TRIALS
 
         # Set epoch timings
@@ -273,7 +287,6 @@ def main():
         # Epoch trials - raw data for trial rejection
         epochs = mne.Epochs(eeg_dat, evs2, ev_dict2, tmin=tmin, tmax=tmax,
                             baseline=None, preload=True, verbose=False)
-                            #baseline=(-0.5, -0.35), preload=True, verbose=False)
 
         # Epoch trials - filtered version
         epochs_alpha = mne.Epochs(alpha_dat, evs2, ev_dict2, tmin=tmin, tmax=tmax,
@@ -281,20 +294,38 @@ def main():
         epochs_fooof = mne.Epochs(fooof_dat, evs2, ev_dict2, tmin=tmin, tmax=tmax,
                                   baseline=(-0.5, -0.35), preload=True, verbose=False);
 
+        #################################################
         ## PRE-PROCESSING: AUTO-REJECT
         if RUN_AUTOREJECT:
 
+            print('\nAUTOREJECT: CALCULATING SOLUTION\n')
+
             # Initialize and run autoreject across epochs
             ar = AutoReject(n_jobs=4, verbose=False)
-            epochs, rej_log = ar.fit_transform(epochs, True)
+            ar.fit(epochs)
 
-            # Drop same trials from filtered data
-            epochs_alpha.drop(rej_log.bad_epochs)
-            epochs_fooof.drop(rej_log.bad_epochs)
+            # Save out AR solution
+            ar.save(pjoin(RES_PATH, 'AR', subj_label + '-ar.hdf5'), overwrite=True)
 
-            # Collect list of dropped trials
-            dropped_trials[s_ind, 0:sum(rej_log.bad_epochs)] = np.where(rej_log.bad_epochs)[0]
+        # Otherwise: load & apply previously saved AR solution
+        else:
+            print('\nAUTOREJECT: USING PRECOMPUTED\n')
+            ar = read_auto_reject(pjoin(RES_PATH, 'AR', subj_label + '-ar.hdf5'))
+            ar.verbose = 'tqdm'
 
+        # Apply autoreject to the original epochs object it was learnt on
+        epochs, rej_log = ar.transform(epochs, return_log=True)
+
+        # Apply autoreject to the copies of the data - apply interpolation, then drop same epochs
+        _apply_interp(rej_log, epochs_alpha, ar.threshes_, ar.picks_, ar.verbose)
+        epochs_alpha.drop(rej_log.bad_epochs)
+        _apply_interp(rej_log, epochs_fooof, ar.threshes_, ar.picks_, ar.verbose)
+        epochs_fooof.drop(rej_log.bad_epochs)
+
+        # Collect which epochs were dropped
+        dropped_trials[s_ind, 0:sum(rej_log.bad_epochs)] = np.where(rej_log.bad_epochs)[0]
+
+        #################################################
         ## SET UP CHANNEL CLUSTERS
 
         # Set channel clusters - take channels contralateral to stimulus presentation
@@ -304,6 +335,7 @@ def main():
         ri_chs = ['P4', 'P6', 'P8', 'P10', 'O2', 'PO4', 'PO8']      # Right Side Channels
         ri_inds = [epochs.ch_names.index(chn) for chn in ri_chs]
 
+        #################################################
         ## TRIAL-RELATED ANALYSIS: CANONICAL vs. FOOOF
 
         # Pull out channel of interest for each load level - canonical data
@@ -333,6 +365,7 @@ def main():
         fooofed_group_avg_dat[s_ind, 1, :] = np.mean(lo2_f, 1).mean(0)
         fooofed_group_avg_dat[s_ind, 2, :] = np.mean(lo3_f, 1).mean(0)
 
+        #################################################
         ## FOOOFING TRIAL AVERAGED DATA
 
         # Settings for trial average FOOOFing
@@ -376,6 +409,9 @@ def main():
 
                 except:
                     continue
+
+    #################################################
+    ## SAVE OUT RESULTS
 
     # Save out group data
     np.save(pjoin(RES_PATH, 'Group', 'alpha_freqs_group'), group_fooofed_alpha_freqs)
