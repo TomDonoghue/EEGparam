@@ -164,6 +164,10 @@ def main():
 
         #################################################
         ## Pre-Processing: ICA
+
+        # High-pass filter data for running ICA
+        eeg_dat.filter(l_freq=1., h_freq=None, fir_design='firwin');
+
         if RUN_ICA:
 
             print("\nICA: CALCULATING SOLUTION\n")
@@ -177,9 +181,6 @@ def main():
             # Initialize ICA object
             ica = ICA(n_components=n_components, method=method,
                       random_state=random_state)
-
-            # High-pass filter data for running ICA
-            eeg_dat.filter(l_freq=1., h_freq=None, fir_design='firwin');
 
             # Fit ICA
             ica.fit(eeg_dat, reject=reject)
