@@ -1,4 +1,4 @@
-"""Load and data organization functsions."""
+"""Load and data organization functions."""
 
 from os.path import join as pjoin
 
@@ -16,14 +16,13 @@ def load_fooof_task(data_path, side='Contra'):
 
     data_path : path to where data
     side: 'Ipsi' or 'Contra'
-
     """
 
     # Settings
-    n_times, n_loads, n_subjs = 3, 3, 31
+    n_loads, n_subjs, n_times = 3, 31, 3
 
     # Collect measures together from FOOOF results into matrices
-    all_slopes = np.zeros(shape=[n_loads, n_subjs, n_times])
+    all_exps = np.zeros(shape=[n_loads, n_subjs, n_times])
     all_alphas = np.zeros(shape=[n_loads, n_subjs, n_times])
 
     for li, load in enumerate(['Load1', 'Load2', 'Load3']):
@@ -35,7 +34,7 @@ def load_fooof_task(data_path, side='Contra'):
         late.load('Group_' + load + '_' + side + '_Late', pjoin(data_path, 'FOOOF'))
 
         for ind, fg in enumerate([pre, early, late]):
-            all_slopes[li, :, ind] = fg.get_all_data('background_params', 'slope').T
+            all_exps[li, :, ind] = fg.get_all_data('aperiodic_params', 'exponent').T
             temp_alphas = get_band_peak_group(fg.get_all_data('peak_params'), [7, 14], len(fg))
 
             temp_alphas = temp_alphas[:, 1]
@@ -46,4 +45,4 @@ def load_fooof_task(data_path, side='Contra'):
     # Replace alpha NaN's with 0
     #all_alphas[np.isnan(all_alphas)] = 0
 
-    return all_slopes, all_alphas
+    return all_exps, all_alphas

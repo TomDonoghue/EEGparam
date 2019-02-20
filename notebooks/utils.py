@@ -32,17 +32,17 @@ def get_overlap(intersect, m1, m2, std1, std2):
     return norm.cdf(intersect, m2, std2) + (1. - norm.cdf(intersect, m1, std1))
 
 
-def calc_bg_comps(freqs, model_bgs):
+def calc_ap_comps(freqs, model_aps):
     """Calculate point by point comparison of power per frequency, from background components.
 
     freqs: vector of frequency values
-    model_bgs: power spectra generated as just the background component
+    model_aps: power spectra generated as just the background component
     """
 
     avg_diffs = []
     p_vals = []
 
-    for f_val in model_bgs.T:
+    for f_val in model_aps.T:
         avg_diffs.append(np.mean(f_val[YNG_INDS] - np.mean(f_val[OLD_INDS])))
         p_vals.append(ttest_ind(f_val[YNG_INDS], f_val[OLD_INDS])[1])
 

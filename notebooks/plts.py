@@ -8,39 +8,11 @@ from scipy.stats import norm
 
 from fooof.core.funcs import gaussian_function, expo_nk_function
 
-from utils import get_intersect, get_pval_shades, calc_bg_comps
+from utils import get_intersect, get_pval_shades, calc_ap_comps
 from settings import *
 
 ###################################################################################################
 ###################################################################################################
-
-def plot_alpha_response_compare(canonical_alpha, fooofed_alpha, t_win, srate):
-    """Plot the alpha response results.
-
-    Note: both inputs should [n_conds, n_times] matrices.
-    """
-
-    # Plot alpha response between different alpha filters
-    f, (ax1, ax2) = plt.subplots(1, 2, sharey=True, figsize=[16, 6])
-    times = np.arange(t_win[0], t_win[1], 1/srate)
-
-    # Canonical alpha
-    ax1.set_title('Canonical Alpha')
-    ax1.plot(times, canonical_alpha[0, :], 'b', label='Load-1')
-    ax1.plot(times, canonical_alpha[1, :], 'g', label='Load-2')
-    ax1.plot(times, canonical_alpha[2, :], 'y', label='Load-3')
-
-    ax2.set_title('FOOOFed Alpha')
-    ax2.plot(times, fooofed_alpha[0, :], 'b', label='Load-1')
-    ax2.plot(times, fooofed_alpha[1, :], 'g', label='Load-2')
-    ax2.plot(times, fooofed_alpha[2, :], 'y', label='Load-3');
-
-    # Restrict x-axis plotting
-    ax1.set_xlim([-0.5, 1.0])
-    ax2.set_xlim([-0.5, 1.0])
-
-    ax1.legend(); ax2.legend();
-
 
 def plot_comp_boxplot(dat, save_fig=False, save_name=None):
     """Plot comparison between groups, as a boxplot.
@@ -108,7 +80,7 @@ def plot_comp(dat, save_fig=False, save_name=None):
 
 
 def plot_comp_scatter(data, label=None, save_fig=False, save_name=None):
-    """   """
+    """Create a scatter plot comparing the two groups."""
 
     fig, ax = plt.subplots(figsize=[2, 4])
 
@@ -180,25 +152,25 @@ def plot_oscillations(alphas, save_fig=False, save_name=None):
     _save_fig(save_fig, save_name)
 
 
-def plot_background(bgs, control_offset=False, save_fig=False, save_name=None):
-    """Plot background components, comparing between groups."""
+def plot_aperiodic(aps, control_offset=False, save_fig=False, save_name=None):
+    """Plot aperiodic components, comparing between groups."""
 
-    n_subjs = bgs.shape[0]
+    n_subjs = aps.shape[0]
 
     # Set offset to be zero across all PSDs
-    tbgs = np.copy(bgs)
+    taps = np.copy(aps)
     if control_offset:
-        tbgs[:, 0] = 1
+        taps[:, 0] = 1
 
     fig, ax = plt.subplots(figsize=[8, 6])
 
     # Get frequency axis (x-axis)
     fs = np.arange(1, 45, 0.1)
 
-    # Create the background model from parameters
-    bg_psds = np.empty(shape=[n_subjs, len(fs)])
-    for ind, bg in enumerate(tbgs):
-        bg_psds[ind, :] = expo_nk_function(fs, *tbgs[ind, :])
+    # Create the aperiodic model from parameters
+    ap_psds = np.empty(shape=[n_subjs, len(fs)])
+    for ind, ap in enumerate(taps):
+        ap_psds[ind, :] = expo_nk_function(fs, *taps[ind, :])
 
     # Set whether to plot x-axis in log
     plt_log = False
@@ -207,16 +179,16 @@ def plot_background(bgs, control_offset=False, save_fig=False, save_name=None):
     # Plot each individual subject
     for ind in range(n_subjs):
         lc = YNG_COL if ind in YNG_INDS else OLD_COL
-        ax.plot(fs, bg_psds[ind, :], lc, alpha=0.2, linewidth=1.5)
+        ax.plot(fs, ap_psds[ind, :], lc, alpha=0.2, linewidth=1.5)
 
     # Plot the average across all subjects, split up by age group
-    you_avg = np.mean(bg_psds[YNG_INDS, :], 0)
-    old_avg = np.mean(bg_psds[OLD_INDS, :], 0)
+    you_avg = np.mean(ap_psds[YNG_INDS, :], 0)
+    old_avg = np.mean(ap_psds[OLD_INDS, :], 0)
     ax.plot(fs, you_avg, YNG_COL, linewidth=4, label='Young')
     ax.plot(fs, old_avg, OLD_COL, linewidth=4, label='Old')
 
     # Shade regions of siginificant difference
-    avg_diffs, p_vals = calc_bg_comps(fs, bg_psds)
+    avg_diffs, p_vals = calc_ap_comps(fs, ap_psds)
     sh_starts, sh_ends = get_pval_shades(fs, p_vals)
     _plt_shade_regions(sh_starts, sh_ends)
 
@@ -237,8 +209,8 @@ def plot_background(bgs, control_offset=False, save_fig=False, save_name=None):
     _save_fig(save_fig, save_name)
 
 
-def plot_sl_band_diff(freqs, avg_diffs, p_vals, save_fig=False, save_name=None):
-    """Plot a comparison between specific frequency values from generated backgrounds.
+def plot_ap_band_diff(freqs, avg_diffs, p_vals, save_fig=False, save_name=None):
+    """Plot a comparison between specific frequency values from generated aperiodic components.
 
     freqs - 1d vector of frequency values
     avg_diffs - 1d vector of differences per frequency value (same len as freqs)
@@ -281,7 +253,7 @@ def plot_overlap(m1, m2, std1, std2, save_fig=False, save_name=None):
     r = get_intersect(m1, m2, std1, std2)
 
     # Initialize plot
-    fig, ax = plt.subplots(figsize=[8, 6])
+    fig, ax = plt.subplots(figsize=[6, 6])
 
     ax.set_xlim([0, 20.])
     ax.set_ylim([0, 0.21])
@@ -307,44 +279,11 @@ def plot_overlap(m1, m2, std1, std2, save_fig=False, save_name=None):
     _save_fig(save_fig, save_name)
 
 
-def plot_task_response(dat, title='', save_fig=False, save_name=None):
-    """   """
-
-    # Set average function to use
-    avg_func = np.median
-
-    fig, ax = fig, ax = plt.subplots(figsize=[6, 4])
-
-    base_yng = np.repeat(dat[:, YNG_INDS, 0], 3).reshape(3, len(YNG_INDS), 3)
-    base_old = np.repeat(dat[:, OLD_INDS, 0], 3).reshape(3, len(OLD_INDS), 3)
-
-    t_dat_yng = dat[:, YNG_INDS, :] - base_yng
-    t_dat_old = dat[:, OLD_INDS, :] - base_old
-
-    avg_dat_yng = avg_func(avg_func(t_dat_yng, 0), 0)
-    avg_dat_old = avg_func(avg_func(t_dat_old, 0), 0)
-
-    plt.plot([0, 1, 2], avg_dat_yng, YNG_COL, lw=2.5, label='Yng')
-    plt.plot([0, 1, 2], avg_dat_old, OLD_COL, lw=2.5, label='Old')
-
-    plt.title(title + ' Response', fontsize=16, fontweight='bold')
-
-    plt.xticks([0, 1, 2], ['Pre', 'Early', 'Late']);
-
-    # Set tick fontsizes
-    plt.setp(ax.get_xticklabels(), fontsize=14, fontweight='bold')
-    plt.setp(ax.get_yticklabels(), fontsize=12)
-
-    plt.legend(fontsize=12)
-
-    _set_lr_spines(ax)
-
-    _save_fig(save_fig, save_name)
-
 ###################################################################################################
 ###################################################################################################
 
 def _save_fig(save_fig, save_name):
+    """Save out current figure."""
 
     if save_fig:
         save_name = 'plts/' + save_name + '.pdf'
@@ -352,7 +291,7 @@ def _save_fig(save_fig, save_name):
 
 
 def _set_lr_spines(ax, lw=None):
-    """   """
+    """Set the spines to drop top & right box & set linewidth."""
 
     # Set the top and right side frame & ticks off
     ax.spines['right'].set_visible(False)
