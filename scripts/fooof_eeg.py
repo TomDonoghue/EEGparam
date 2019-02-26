@@ -339,16 +339,22 @@ def main():
         #################################################
         ## TRIAL-RELATED ANALYSIS: CANONICAL vs. FOOOF
 
-        # Pull out channel of interest for each load level - canonical data
+        ## TODO: Average across trials, FOOOF per channel
+        # FOOOFGroup all channels within load
+        # Collect alpha from the FOOOGRoup, nanmeaning across channels
+
+        ## Pull out channel of interest for each load level
         #  Channels extracted are those contralateral to stimulus presentation
+
+        # Canonical Data
         lo1_a = np.concatenate([epochs_alpha['LeLo1']._data[:, ri_inds, :],
                                 epochs_alpha['RiLo1']._data[:, le_inds, :]], 0)
         lo2_a = np.concatenate([epochs_alpha['LeLo2']._data[:, ri_inds, :],
                                 epochs_alpha['RiLo2']._data[:, le_inds, :]], 0)
         lo3_a = np.concatenate([epochs_alpha['LeLo3']._data[:, ri_inds, :],
                                 epochs_alpha['RiLo3']._data[:, le_inds, :]], 0)
-        # Pull out channel of interest for each load level - fooofed data
-        #  Channels extracted are those contralateral to stimulus presentation
+
+        # FOOOFed data
         lo1_f = np.concatenate([epochs_fooof['LeLo1']._data[:, ri_inds, :],
                                 epochs_fooof['RiLo1']._data[:, le_inds, :]], 0)
         lo2_f = np.concatenate([epochs_fooof['LeLo2']._data[:, ri_inds, :],
@@ -356,11 +362,13 @@ def main():
         lo3_f = np.concatenate([epochs_fooof['LeLo3']._data[:, ri_inds, :],
                                 epochs_fooof['RiLo3']._data[:, le_inds, :]], 0)
 
-        # Calculate average across trials and channels - add to group data collection
+        ## Calculate average across trials and channels - add to group data collection
+
         # Canonical data
         canonical_group_avg_dat[s_ind, 0, :] = np.mean(lo1_a, 1).mean(0)
         canonical_group_avg_dat[s_ind, 1, :] = np.mean(lo2_a, 1).mean(0)
         canonical_group_avg_dat[s_ind, 2, :] = np.mean(lo3_a, 1).mean(0)
+
         # FOOOFed data
         fooofed_group_avg_dat[s_ind, 0, :] = np.mean(lo1_f, 1).mean(0)
         fooofed_group_avg_dat[s_ind, 1, :] = np.mean(lo2_f, 1).mean(0)
@@ -368,9 +376,6 @@ def main():
 
         #################################################
         ## FOOOFING TRIAL AVERAGED DATA
-
-        # Settings for trial average FOOOFing
-        fmin, fmax = 4, 25
 
         # Loop loop loads & trials segments
         for seg_label, seg_time in zip(SEG_LABELS, SEG_TIMES):
@@ -403,9 +408,9 @@ def main():
                     avg_psd_ipsi = np.mean(np.vstack([le_avg_psd_ipsi, ri_avg_psd_ipsi]), 0)
 
                     # Fit FOOOF & collect results
-                    fm.fit(trial_freqs, avg_psd_contra, [fmin,fmax])
+                    fm.fit(trial_freqs, avg_psd_contra, FREQ_RANGE)
                     fg_dict[load_label]['Contra'][seg_label].append(fm.copy())
-                    fm.fit(trial_freqs, avg_psd_ipsi, [fmin, fmax])
+                    fm.fit(trial_freqs, avg_psd_ipsi, FREQ_RANGE)
                     fg_dict[load_label]['Ipsi'][seg_label].append(fm.copy())
 
                 except:

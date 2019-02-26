@@ -1,7 +1,7 @@
 """"Helper / utility functions for EEG-FOOOF."""
 
 import numpy as np
-from scipy.stats import norm, ttest_ind
+from scipy.stats import pearsonr, norm, ttest_ind
 
 from settings import YNG_INDS, OLD_INDS
 
@@ -18,6 +18,26 @@ def drop_nan(vec):
 
 def print_stat(label, stat_val, p_val):
     print(label + ': \t {: 5.4f} \t{:5.4f}'.format(stat_val, p_val))
+
+
+def nan_corr(vec1, vec2):
+    """Correlation of two vectors with NaN values.
+
+    Note: assumes the vectors have NaN in the same indices.
+    """
+
+    nan_inds = np.isnan(vec1)
+
+    return pearsonr(vec1[~nan_inds], vec2[~nan_inds])
+
+
+def nan_ttest(vec1, vec2):
+    """Run an independent samples ttest on vectors with NaNs in them."""
+
+    d1 = vec1[~np.isnan(vec1)]
+    d2 = vec2[~np.isnan(vec2)]
+
+    return(ttest_ind(d1, d2))
 
 
 def get_intersect(m1, m2, std1, std2):

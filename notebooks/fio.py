@@ -10,7 +10,7 @@ from fooof.analysis import get_band_peak_group
 ###################################################################################################
 ###################################################################################################
 
-def load_fooof_task(data_path, side='Contra'):
+def load_fooof_task_ap(data_path, side='Contra'):
     """Loads task data in for all subjects, across loads and trial times.
     Returns matrix of slope & alpha data.
 
@@ -23,7 +23,7 @@ def load_fooof_task(data_path, side='Contra'):
 
     # Collect measures together from FOOOF results into matrices
     all_exps = np.zeros(shape=[n_loads, n_subjs, n_times])
-    all_alphas = np.zeros(shape=[n_loads, n_subjs, n_times])
+    all_offsets = np.zeros(shape=[n_loads, n_subjs, n_times])
 
     for li, load in enumerate(['Load1', 'Load2', 'Load3']):
 
@@ -35,14 +35,37 @@ def load_fooof_task(data_path, side='Contra'):
 
         for ind, fg in enumerate([pre, early, late]):
             all_exps[li, :, ind] = fg.get_all_data('aperiodic_params', 'exponent').T
+            all_offsets[li, :, ind] = fg.get_all_data('aperiodic_params', 'offset').T
+
+    return all_offsets, all_exps
+
+
+def load_fooof_task_pe(data_path, side='Contra', param_ind=1):
+    """Loads task data in for all subjects, across loads and trial times.
+    Returns matrix of slope & alpha data.
+
+    data_path : path to where data
+    side: 'Ipsi' or 'Contra'
+    """
+
+    # Settings
+    n_loads, n_subjs, n_times = 3, 31, 3
+
+    # Collect measures together from FOOOF results into matrices
+    all_alphas = np.zeros(shape=[n_loads, n_subjs, n_times])
+
+    for li, load in enumerate(['Load1', 'Load2', 'Load3']):
+
+        # Load the FOOOF analyses of the average
+        pre, early, late = FOOOFGroup(), FOOOFGroup(), FOOOFGroup()
+        pre.load('Group_' + load + '_' + side + '_Pre', pjoin(data_path, 'FOOOF'))
+        early.load('Group_' + load + '_' + side +  '_Early', pjoin(data_path, 'FOOOF'))
+        late.load('Group_' + load + '_' + side + '_Late', pjoin(data_path, 'FOOOF'))
+
+        for ind, fg in enumerate([pre, early, late]):
             temp_alphas = get_band_peak_group(fg.get_all_data('peak_params'), [7, 14], len(fg))
+            all_alphas[li, :, ind] = temp_alphas[:, param_ind]
 
-            temp_alphas = temp_alphas[:, 1]
-            #temp_alphas = all_areas(temp_alphas)
+    return all_alphas
 
-            all_alphas[li, :, ind] = temp_alphas
 
-    # Replace alpha NaN's with 0
-    #all_alphas[np.isnan(all_alphas)] = 0
-
-    return all_exps, all_alphas
