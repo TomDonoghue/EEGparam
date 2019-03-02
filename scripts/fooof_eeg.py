@@ -32,8 +32,11 @@ from om.core.utils import clean_file_list
 ###################################################################################################
 ###################################################################################################
 
-#################################################
 ## SETTINGS
+
+# Set paths
+DAT_PATH = '/Users/tom/Documents/Data/Voytek_WMData/G2/'
+RES_PATH = '/Users/tom/Documents/Research/1-Projects/fooof/2-Data/Results/'
 
 # Processing Options
 #   Note: by default, if set to false, this will apply a saved solution for ICA & AR
@@ -60,6 +63,10 @@ CHL = 'Oz'
 # Set names for EOG channels
 EOG_CHS = ['LHor', 'RHor', 'IVer', 'SVer']
 
+# Set which average function to use
+avg_func = np.mean
+#avg_func = np.median
+
 # Set FOOOF frequency range
 FREQ_RANGE = [3, 25]
 
@@ -68,10 +75,6 @@ PEAK_WIDTH_LIMITS = [1, 6]
 MAX_N_PEAKS = 6
 MIN_PEAK_AMP = 0.05
 PEAK_THRESHOLD = 1.5
-
-# Set paths
-DAT_PATH = '/Users/tom/Documents/Data/Voytek_WMData/G2/'
-RES_PATH = '/Users/tom/Documents/Research/1-Projects/fooof/2-Data/Results/'
 
 # Data settings
 EXT = '.bdf'
@@ -386,26 +389,25 @@ def main():
                                                       ['RiLo1', 'RiLo2', 'RiLo3'],
                                                       LOAD_LABELS):
 
-                # Calculate trial wise PSDs - left side trials
+                ## Calculate trial wise PSDs for left & right side trials
                 trial_freqs, le_trial_psds = periodogram(
                     epochs[le_label]._data[:, :, _time_mask(epochs.times, tmin, tmax, srate)],
                     srate, window='hann', nfft=4*srate)
-
-                le_avg_psd_contra = np.mean(le_trial_psds[:, ri_inds, :], 0).mean(0)
-                le_avg_psd_ipsi = np.mean(le_trial_psds[:, le_inds, :], 0).mean(0)
-
-                # Calculate trial wise PSDs - right side trials
                 trial_freqs, ri_trial_psds = periodogram(
                     epochs[ri_label]._data[:, :, _time_mask(epochs.times, tmin, tmax, srate)],
                     srate, window='hann', nfft=4*srate)
 
-                ri_avg_psd_contra = np.mean(ri_trial_psds[:, le_inds, :], 0).mean(0)
-                ri_avg_psd_ipsi = np.mean(ri_trial_psds[:, ri_inds, :], 0).mean(0)
+                ##
+                le_avg_psd_contra = avg_func(avg_func(le_trial_psds[:, ri_inds, :], 0), 0)
+                le_avg_psd_ipsi = avg_func(avg_func(le_trial_psds[:, le_inds, :], 0), 0)
 
-                # Collapse PSD across left & right trials for given load
+                ri_avg_psd_contra = avg_func(avg_func(ri_trial_psds[:, le_inds, :], 0), 0)
+                ri_avg_psd_ipsi = avg_func(avg_func(ri_trial_psds[:, ri_inds, :], 0), 0)
+
                 try:
-                    avg_psd_contra = np.mean(np.vstack([le_avg_psd_contra, ri_avg_psd_contra]), 0)
-                    avg_psd_ipsi = np.mean(np.vstack([le_avg_psd_ipsi, ri_avg_psd_ipsi]), 0)
+                    # Collapse spectra across left & right trials for given load
+                    avg_psd_contra = avg_func(np.vstack([le_avg_psd_contra, ri_avg_psd_contra]), 0)
+                    avg_psd_ipsi = avg_func(np.vstack([le_avg_psd_ipsi, ri_avg_psd_ipsi]), 0)
 
                     # Fit FOOOF & collect results
                     fm.fit(trial_freqs, avg_psd_contra, FREQ_RANGE)
