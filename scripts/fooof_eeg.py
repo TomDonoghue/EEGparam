@@ -23,11 +23,12 @@ from autoreject.autoreject import _apply_interp
 
 # FOOOF & Associated Code
 from fooof import FOOOF, FOOOFGroup
+from fooof.data import FOOOFSettings
 from fooof.analysis import get_band_peak
 from fooof.funcs import combine_fooofs
 
 # Other custom code
-from om.core.utils import clean_file_list
+from fooof_avg import avg_fg
 
 ###################################################################################################
 ###################################################################################################
@@ -38,10 +39,13 @@ from om.core.utils import clean_file_list
 DAT_PATH = '/Users/tom/Documents/Data/Voytek_WMData/G2/'
 RES_PATH = '/Users/tom/Documents/Research/1-Projects/fooof/2-Data/Results/'
 
-# Processing Options
+# Pre-Processing Options
 #   Note: by default, if set to false, this will apply a saved solution for ICA & AR
-RUN_ICA = True
-RUN_AUTOREJECT = True
+RUN_ICA = False
+RUN_AUTOREJECT = False
+
+# Analysis Options
+FIT_ALL_CHANNELS = True
 
 # Set up event code dictionary, with key labels for each event type
 EV_DICT = {'LeLo1': [201, 202], 'LeLo2': [205, 206], 'LeLo3': [209, 210],
@@ -75,6 +79,7 @@ PEAK_WIDTH_LIMITS = [1, 6]
 MAX_N_PEAKS = 6
 MIN_PEAK_AMP = 0.05
 PEAK_THRESHOLD = 1.5
+APERIODIC_MODE = 'fixed'
 
 # Data settings
 EXT = '.bdf'
@@ -88,20 +93,20 @@ def main():
     #################################################
     ## SETUP
 
-    # Get list of subject files
+    ## Get list of subject files
     subj_files = listdir(DAT_PATH)
-    subj_files = clean_file_list(subj_files, EXT)
+    subj_files = [file for file in subj_files if EXT.lower() in file.lower()]
 
-    # Initialize FOOOFGroup object, and save out settings file
-    #  This is the one used for first FOOOFing (across all channels - 2 minute 'rest data')
-    fg = FOOOFGroup(peak_width_limits=PEAK_WIDTH_LIMITS, max_n_peaks=MAX_N_PEAKS,
-                    min_peak_amplitude=MIN_PEAK_AMP, peak_threshold=PEAK_THRESHOLD)
+    ## Set up FOOOF Objects
+    # Initialize FOOOF settings & objects objects
+    fooof_settings = FOOOFSettings(peak_width_limits=PEAK_WIDTH_LIMITS, max_n_peaks=MAX_N_PEAKS,
+                                   min_peak_amplitude=MIN_PEAK_AMP, peak_threshold=PEAK_THRESHOLD,
+                                   aperiodic_mode=APERIODIC_MODE)
+    fm = FOOOF(*fooof_settings, verbose=False)
+    fg = FOOOFGroup(*fooof_settings, verbose=False)
+
+    # Save out a settings file
     fg.save('0-FOOOF_Settings', pjoin(RES_PATH, 'FOOOF'), save_settings=True)
-
-    # Initialize FOOOF model, used for second FOOOFing
-    #  This is the one used for the task related, epoched data
-    fm = FOOOF(peak_width_limits=PEAK_WIDTH_LIMITS, max_n_peaks=MAX_N_PEAKS,
-               min_peak_amplitude=MIN_PEAK_AMP, peak_threshold=PEAK_THRESHOLD)
 
     # Set up the dictionary to store all the FOOOF results
     fg_dict = dict()
@@ -112,7 +117,7 @@ def main():
             for seg_label in SEG_LABELS:
                 fg_dict[load_label][side_label][seg_label] = []
 
-    # Initialize group level data stores
+    ## Initialize group level data stores
     n_subjs, n_conds, n_times = len(subj_files), 3, N_TIMES
     group_fooofed_alpha_freqs = np.zeros(shape=[n_subjs])
     dropped_components = np.ones(shape=[n_subjs, 50]) * 999
@@ -160,7 +165,6 @@ def main():
 
         # Get event information & check all used event codes
         evs = mne.find_events(eeg_dat, shortest_event=1, verbose=False)
-        ev_codes = np.unique(evs[:, 2])
 
         # Pull out sampling rate
         srate = eeg_dat.info['sfreq']
@@ -169,7 +173,7 @@ def main():
         ## Pre-Processing: ICA
 
         # High-pass filter data for running ICA
-        eeg_dat.filter(l_freq=1., h_freq=None, fir_design='firwin');
+        eeg_dat.filter(l_freq=1., h_freq=None, fir_design='firwin')
 
         if RUN_ICA:
 
@@ -199,7 +203,7 @@ def main():
         # Find components to drop, based on correlation with EOG channels
         drop_inds = []
         for chi in EOG_CHS:
-            inds, scores = ica.find_bads_eog(eeg_dat, ch_name=chi, threshold=2.5,
+            inds, _ = ica.find_bads_eog(eeg_dat, ch_name=chi, threshold=2.5,
                                              l_freq=1, h_freq=10, verbose=False)
             drop_inds.extend(inds)
         drop_inds = list(set(drop_inds))
@@ -209,7 +213,7 @@ def main():
         dropped_components[s_ind, 0:len(drop_inds)] = drop_inds
 
         # Apply ICA to data
-        eeg_dat = ica.apply(eeg_dat);
+        eeg_dat = ica.apply(eeg_dat)
 
         #################################################
         ## SORT OUT EVENT CODES
@@ -249,7 +253,7 @@ def main():
         fmin, fmax = 1, 50
         tmin, tmax = 5, 125
         psds, freqs = mne.time_frequency.psd_welch(eeg_dat, fmin=fmin, fmax=fmax,
-                                                   tmin=tmin ,tmax=tmax,
+                                                   tmin=tmin, tmax=tmax,
                                                    n_fft=int(2*srate), n_overlap=int(srate),
                                                    n_per_seg=int(2*srate),
                                                    verbose=False)
@@ -262,7 +266,7 @@ def main():
 
         # Extract individualized CF from specified channel, add to group collection
         fm = fg.get_fooof(ch_ind, False)
-        fooof_freq, _, fooof_bw = get_band_peak(fm.peak_params_, [7, 14])
+        fooof_freq, _, _ = get_band_peak(fm.peak_params_, [7, 14])
         group_fooofed_alpha_freqs[s_ind] = fooof_freq
 
         # If not FOOOF alpha extracted, reset to 10
@@ -294,9 +298,9 @@ def main():
 
         # Epoch trials - filtered version
         epochs_alpha = mne.Epochs(alpha_dat, evs2, ev_dict2, tmin=tmin, tmax=tmax,
-                                  baseline=(-0.5, -0.35), preload=True, verbose=False);
+                                  baseline=(-0.5, -0.35), preload=True, verbose=False)
         epochs_fooof = mne.Epochs(fooof_dat, evs2, ev_dict2, tmin=tmin, tmax=tmax,
-                                  baseline=(-0.5, -0.35), preload=True, verbose=False);
+                                  baseline=(-0.5, -0.35), preload=True, verbose=False)
 
         #################################################
         ## PRE-PROCESSING: AUTO-REJECT
@@ -342,11 +346,7 @@ def main():
         #################################################
         ## TRIAL-RELATED ANALYSIS: CANONICAL vs. FOOOF
 
-        ## TODO: Average across trials, FOOOF per channel
-        # FOOOFGroup all channels within load
-        # Collect alpha from the FOOOGRoup, nanmeaning across channels
-
-        ## Pull out channel of interest for each load level
+        ## Pull out channels of interest for each load level
         #  Channels extracted are those contralateral to stimulus presentation
 
         # Canonical Data
@@ -397,26 +397,45 @@ def main():
                     epochs[ri_label]._data[:, :, _time_mask(epochs.times, tmin, tmax, srate)],
                     srate, window='hann', nfft=4*srate)
 
-                ##
-                le_avg_psd_contra = avg_func(avg_func(le_trial_psds[:, ri_inds, :], 0), 0)
-                le_avg_psd_ipsi = avg_func(avg_func(le_trial_psds[:, le_inds, :], 0), 0)
+                ## FIT ALL CHANNELS VERSION
+                if FIT_ALL_CHANNELS:
 
-                ri_avg_psd_contra = avg_func(avg_func(ri_trial_psds[:, le_inds, :], 0), 0)
-                ri_avg_psd_ipsi = avg_func(avg_func(ri_trial_psds[:, ri_inds, :], 0), 0)
+                    ## Average spectra across trials within a given load & side
+                    le_avg_psd_contra = avg_func(le_trial_psds[:, ri_inds, :], 0)
+                    le_avg_psd_ipsi = avg_func(le_trial_psds[:, le_inds, :], 0)
+                    ri_avg_psd_contra = avg_func(ri_trial_psds[:, le_inds, :], 0)
+                    ri_avg_psd_ipsi = avg_func(ri_trial_psds[:, ri_inds, :], 0)
 
-                try:
-                    # Collapse spectra across left & right trials for given load
+                    ## Combine spectra across left & right trials for given load
+                    ch_psd_contra = np.vstack([le_avg_psd_contra, ri_avg_psd_contra])
+                    ch_psd_ipsi = np.vstack([le_avg_psd_ipsi, ri_avg_psd_ipsi])
+
+                    ## Fit FOOOFGroup to all channels, average & and collect results
+                    fg.fit(trial_freqs, ch_psd_contra, FREQ_RANGE)
+                    fm = avg_fg(fg)
+                    fg_dict[load_label]['Contra'][seg_label].append(fm.copy())
+                    fg.fit(trial_freqs, ch_psd_ipsi, FREQ_RANGE)
+                    fm = avg_fg(fg)
+                    fg_dict[load_label]['Ipsi'][seg_label].append(fm.copy())
+
+                ## COLLAPSE ACROSS CHANNELS VERSION
+                else:
+
+                    ## Average spectra across trials and channels within a given load & side
+                    le_avg_psd_contra = avg_func(avg_func(le_trial_psds[:, ri_inds, :], 0), 0)
+                    le_avg_psd_ipsi = avg_func(avg_func(le_trial_psds[:, le_inds, :], 0), 0)
+                    ri_avg_psd_contra = avg_func(avg_func(ri_trial_psds[:, le_inds, :], 0), 0)
+                    ri_avg_psd_ipsi = avg_func(avg_func(ri_trial_psds[:, ri_inds, :], 0), 0)
+
+                    ## Collapse spectra across left & right trials for given load
                     avg_psd_contra = avg_func(np.vstack([le_avg_psd_contra, ri_avg_psd_contra]), 0)
                     avg_psd_ipsi = avg_func(np.vstack([le_avg_psd_ipsi, ri_avg_psd_ipsi]), 0)
 
-                    # Fit FOOOF & collect results
+                    ## Fit FOOOF, and collect results
                     fm.fit(trial_freqs, avg_psd_contra, FREQ_RANGE)
                     fg_dict[load_label]['Contra'][seg_label].append(fm.copy())
                     fm.fit(trial_freqs, avg_psd_ipsi, FREQ_RANGE)
                     fg_dict[load_label]['Ipsi'][seg_label].append(fm.copy())
-
-                except:
-                    continue
 
     #################################################
     ## SAVE OUT RESULTS
@@ -434,7 +453,7 @@ def main():
             for seg_label in SEG_LABELS:
                 fg = combine_fooofs(fg_dict[load_label][side_label][seg_label])
                 fg.save('Group_' + load_label + '_' + side_label + '_' + seg_label,
-                    pjoin(RES_PATH, 'FOOOF'), save_results=True)
+                        pjoin(RES_PATH, 'FOOOF'), save_results=True)
 
 if __name__ == "__main__":
     main()
