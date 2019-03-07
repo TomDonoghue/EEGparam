@@ -17,7 +17,7 @@ def drop_nan(vec):
 
 
 def print_stat(label, stat_val, p_val):
-    print(label + ': \t {: 5.4f} \t{:5.4f}'.format(stat_val, p_val))
+    print(label + ': \t {: 5.4f} \t{: 5.4f}'.format(stat_val, p_val))
 
 
 def nan_corr(vec1, vec2):
