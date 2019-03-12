@@ -1,4 +1,4 @@
-""".  """
+"""Functions to run pieces of analyses for EEG-FOOOF."""
 
 import patsy
 import statsmodels.api as sm
