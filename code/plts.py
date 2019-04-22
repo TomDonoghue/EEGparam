@@ -47,6 +47,7 @@ def plot_comp_boxplot(dat, save_fig=False, save_name=None):
 
     _save_fig(save_fig, save_name)
 
+
 def plot_comp(dat, save_fig=False, save_name=None):
     """Plot comparison between groups, as a mean value with an errorbar.
 
@@ -152,7 +153,7 @@ def plot_oscillations(alphas, save_fig=False, save_name=None):
     _save_fig(save_fig, save_name)
 
 
-def plot_aperiodic(aps, control_offset=False, save_fig=False, save_name=None):
+def plot_aperiodic(aps, control_offset=False, save_fig=False, save_name=None, return_vals=False):
     """Plot aperiodic components, comparing between groups."""
 
     n_subjs = aps.shape[0]
@@ -179,7 +180,7 @@ def plot_aperiodic(aps, control_offset=False, save_fig=False, save_name=None):
     # Plot each individual subject
     for ind in range(n_subjs):
         lc = YNG_COL if ind in YNG_INDS else OLD_COL
-        ax.plot(fs, ap_psds[ind, :], lc, alpha=0.2, linewidth=1.5)
+        ax.plot(fs, ap_psds[ind, :], lc, alpha=0.2, linewidth=1.8)
 
     # Plot the average across all subjects, split up by age group
     you_avg = np.mean(ap_psds[YNG_INDS, :], 0)
@@ -207,6 +208,9 @@ def plot_aperiodic(aps, control_offset=False, save_fig=False, save_name=None):
     plt.legend()
 
     _save_fig(save_fig, save_name)
+
+    if return_vals:
+        return fs, avg_diffs, p_vals
 
 
 def plot_ap_band_diff(freqs, avg_diffs, p_vals, save_fig=False, save_name=None):

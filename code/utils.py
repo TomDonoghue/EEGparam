@@ -1,5 +1,8 @@
 """"Helper / utility functions for EEG-FOOOF."""
 
+from math import sqrt
+from statistics import mean, stdev
+
 import numpy as np
 from scipy.stats import pearsonr, norm, ttest_ind
 
@@ -8,15 +11,39 @@ from settings import YNG_INDS, OLD_INDS
 ###################################################################################################
 ###################################################################################################
 
+def cohens_d(d1, d2):
+    """Calculate cohens-D: (u1 - u2)/SDpooled."""
+
+    return (mean(d1) - mean(d2)) / (sqrt((stdev(d1) ** 2 + stdev(d2) ** 2) / 2))
+
+
+def mean_diff(d1, d2):
+    """Helper function to calculate mean differences."""
+
+    return np.mean(d1) - np.mean(d2)
+
+
+def check_outliers(dat, thresh):
+    """Calculate indices of outliers, as defined by a standard deviation threshold."""
+
+    return list(np.where(np.abs(dat - np.mean(dat)) > thresh * np.std(dat))[0])
+
+
 def calc_diff(dat, i1, i2):
+    """Calculate element-wise differences between columns of an array."""
+
     return dat[:, i1] - dat[:, i2]
 
 
 def drop_nan(vec):
+    """Drop any NaN indices of an array."""
+
     return vec[~np.isnan(vec)]
 
 
 def print_stat(label, stat_val, p_val):
+    """Helper function to print out statistical tests."""
+
     print(label + ': \t {: 5.4f} \t{: 5.4f}'.format(stat_val, p_val))
 
 
@@ -40,6 +67,23 @@ def nan_ttest(vec1, vec2):
     return(ttest_ind(d1, d2))
 
 
+def calc_ap_comps(freqs, model_aps):
+    """Calculate point by point comparison of power per frequency, from aperiodic components.
+
+    freqs: vector of frequency values
+    model_aps: power spectra generated as just the aperiodic component
+    """
+
+    avg_diffs = []
+    p_vals = []
+
+    for f_val in model_aps.T:
+        avg_diffs.append(np.mean(f_val[YNG_INDS] - np.mean(f_val[OLD_INDS])))
+        p_vals.append(ttest_ind(f_val[YNG_INDS], f_val[OLD_INDS])[1])
+
+    return avg_diffs, p_vals
+
+
 def get_intersect(m1, m2, std1, std2):
     """Gets the point of intersection of two gaussians defined by (m1, std1) & (m2, std2)"""
 
@@ -54,23 +98,6 @@ def get_overlap(intersect, m1, m2, std1, std2):
     """Get the percent overlap of two gaussians, given their definitions, and intersection point."""
 
     return norm.cdf(intersect, m2, std2) + (1. - norm.cdf(intersect, m1, std1))
-
-
-def calc_ap_comps(freqs, model_aps):
-    """Calculate point by point comparison of power per frequency, from background components.
-
-    freqs: vector of frequency values
-    model_aps: power spectra generated as just the background component
-    """
-
-    avg_diffs = []
-    p_vals = []
-
-    for f_val in model_aps.T:
-        avg_diffs.append(np.mean(f_val[YNG_INDS] - np.mean(f_val[OLD_INDS])))
-        p_vals.append(ttest_ind(f_val[YNG_INDS], f_val[OLD_INDS])[1])
-
-    return avg_diffs, p_vals
 
 
 def get_pval_shades(freqs, p_vals):
