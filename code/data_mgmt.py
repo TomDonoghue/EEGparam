@@ -35,8 +35,8 @@ def load_fooof_task_md(data_path, side='Contra', folder='FOOOF'):
         pre, early, late = _load_fgs(data_path, folder, side, load)
 
         for ind, fg in enumerate([pre, early, late]):
-            all_r2s[li, :, ind] = fg.get_all_data('r_squared')
-            all_errs[li, :, ind] = fg.get_all_data('error')
+            all_r2s[li, :, ind] = fg.get_params('r_squared')
+            all_errs[li, :, ind] = fg.get_params('error')
 
     return all_r2s, all_errs
 
@@ -60,8 +60,8 @@ def load_fooof_task_ap(data_path, side='Contra', folder='FOOOF'):
         pre, early, late = _load_fgs(data_path, folder, side, load)
 
         for ind, fg in enumerate([pre, early, late]):
-            all_exps[li, :, ind] = fg.get_all_data('aperiodic_params', 'exponent')
-            all_offsets[li, :, ind] = fg.get_all_data('aperiodic_params', 'offset')
+            all_exps[li, :, ind] = fg.get_params('aperiodic_params', 'exponent')
+            all_offsets[li, :, ind] = fg.get_params('aperiodic_params', 'offset')
 
     return all_offsets, all_exps
 
@@ -84,7 +84,7 @@ def load_fooof_task_pe(data_path, side='Contra', param_ind=1, folder='FOOOF'):
         pre, early, late = _load_fgs(data_path, folder, side, load)
 
         for ind, fg in enumerate([pre, early, late]):
-            temp_alphas = get_band_peak_group(fg.get_all_data('peak_params'), [7, 14], len(fg))
+            temp_alphas = get_band_peak_group(fg.get_params('peak_params'), [7, 14], len(fg))
             all_alphas[li, :, ind] = temp_alphas[:, param_ind]
 
     return all_alphas
