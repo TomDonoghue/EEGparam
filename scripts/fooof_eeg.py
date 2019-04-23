@@ -23,12 +23,15 @@ from autoreject.autoreject import _apply_interp
 
 # FOOOF & Associated Code
 from fooof import FOOOF, FOOOFGroup
+from fooof.bands import Bands
 from fooof.data import FOOOFSettings
 from fooof.analysis import get_band_peak
-from fooof.funcs import combine_fooofs
+from fooof.funcs import combine_fooofs, average_fg
+
+
 
 # Other custom code
-from fooof_avg import avg_fg
+#from fooof_avg import avg_fg
 
 ###################################################################################################
 ###################################################################################################
@@ -77,9 +80,12 @@ FREQ_RANGE = [3, 25]
 # FOOOF Settings
 PEAK_WIDTH_LIMITS = [1, 6]
 MAX_N_PEAKS = 6
-MIN_PEAK_AMP = 0.05
+MIN_PEAK_HEIGHT = 0.05
 PEAK_THRESHOLD = 1.5
 APERIODIC_MODE = 'fixed'
+
+# Set band definitions to use
+BANDS = Bands({'alpha' : [7, 14]})
 
 # Data settings
 EXT = '.bdf'
@@ -100,7 +106,7 @@ def main():
     ## Set up FOOOF Objects
     # Initialize FOOOF settings & objects objects
     fooof_settings = FOOOFSettings(peak_width_limits=PEAK_WIDTH_LIMITS, max_n_peaks=MAX_N_PEAKS,
-                                   min_peak_amplitude=MIN_PEAK_AMP, peak_threshold=PEAK_THRESHOLD,
+                                   min_peak_height=MIN_PEAK_HEIGHT, peak_threshold=PEAK_THRESHOLD,
                                    aperiodic_mode=APERIODIC_MODE)
     fm = FOOOF(*fooof_settings, verbose=False)
     fg = FOOOFGroup(*fooof_settings, verbose=False)
@@ -266,7 +272,7 @@ def main():
 
         # Extract individualized CF from specified channel, add to group collection
         fm = fg.get_fooof(ch_ind, False)
-        fooof_freq, _, _ = get_band_peak(fm.peak_params_, [7, 14])
+        fooof_freq, _, _ = get_band_peak(fm.peak_params_, BANDS.alpha)
         group_fooofed_alpha_freqs[s_ind] = fooof_freq
 
         # If not FOOOF alpha extracted, reset to 10
@@ -412,10 +418,10 @@ def main():
 
                     ## Fit FOOOFGroup to all channels, average & and collect results
                     fg.fit(trial_freqs, ch_psd_contra, FREQ_RANGE)
-                    fm = avg_fg(fg)
+                    fm = average_fg(fg, )
                     fg_dict[load_label]['Contra'][seg_label].append(fm.copy())
                     fg.fit(trial_freqs, ch_psd_ipsi, FREQ_RANGE)
-                    fm = avg_fg(fg)
+                    fm = average_fg(fg, BANDS)
                     fg_dict[load_label]['Ipsi'][seg_label].append(fm.copy())
 
                 ## COLLAPSE ACROSS CHANNELS VERSION
