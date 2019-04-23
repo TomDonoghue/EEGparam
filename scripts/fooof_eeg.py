@@ -1,11 +1,4 @@
-"""Analysis script for the EEG project.
-
-Notes
------
-- Baseline: -500 - 350
-- All trials average (all subjects), or average of subject averages?
-- Filter individual channels or single frequency estimate per subject?
-"""
+"""Analysis script for the EEGFOOOF analysis."""
 
 from os import listdir
 from os.path import join as pjoin
@@ -27,11 +20,6 @@ from fooof.bands import Bands
 from fooof.data import FOOOFSettings
 from fooof.analysis import get_band_peak
 from fooof.funcs import combine_fooofs, average_fg
-
-
-
-# Other custom code
-#from fooof_avg import avg_fg
 
 ###################################################################################################
 ###################################################################################################
@@ -71,8 +59,8 @@ CHL = 'Oz'
 EOG_CHS = ['LHor', 'RHor', 'IVer', 'SVer']
 
 # Set which average function to use
-avg_func = np.mean
-#avg_func = np.median
+AVG_FUNC = np.mean
+#AVG_FUNC = np.median
 
 # Set FOOOF frequency range
 FREQ_RANGE = [3, 25]
@@ -270,15 +258,6 @@ def main():
         # Save out FOOOF results
         fg.save(subj_label + '_fooof', pjoin(RES_PATH, 'FOOOF'), save_results=True)
 
-        # Extract individualized CF from specified channel, add to group collection
-        fm = fg.get_fooof(ch_ind, False)
-        fooof_freq, _, _ = get_band_peak(fm.peak_params_, BANDS.alpha)
-        group_fooofed_alpha_freqs[s_ind] = fooof_freq
-
-        # If not FOOOF alpha extracted, reset to 10
-        if np.isnan(fooof_freq):
-            fooof_freq = 10
-
         #################################################
         ## ALPHA FILTERING
 
@@ -286,11 +265,6 @@ def main():
         alpha_dat = eeg_dat.copy()
         alpha_dat.filter(8, 12, fir_design='firwin', verbose=False)
         alpha_dat.apply_hilbert(envelope=True, verbose=False)
-
-        # FOOOF: Filter data to FOOOF derived alpha band
-        fooof_dat = eeg_dat.copy()
-        fooof_dat.filter(fooof_freq-2, fooof_freq+2, fir_design='firwin')
-        fooof_dat.apply_hilbert(envelope=True)
 
         #################################################
         ## EPOCH TRIALS
@@ -304,8 +278,6 @@ def main():
 
         # Epoch trials - filtered version
         epochs_alpha = mne.Epochs(alpha_dat, evs2, ev_dict2, tmin=tmin, tmax=tmax,
-                                  baseline=(-0.5, -0.35), preload=True, verbose=False)
-        epochs_fooof = mne.Epochs(fooof_dat, evs2, ev_dict2, tmin=tmin, tmax=tmax,
                                   baseline=(-0.5, -0.35), preload=True, verbose=False)
 
         #################################################
@@ -333,8 +305,6 @@ def main():
         # Apply autoreject to the copies of the data - apply interpolation, then drop same epochs
         _apply_interp(rej_log, epochs_alpha, ar.threshes_, ar.picks_, ar.verbose)
         epochs_alpha.drop(rej_log.bad_epochs)
-        _apply_interp(rej_log, epochs_fooof, ar.threshes_, ar.picks_, ar.verbose)
-        epochs_fooof.drop(rej_log.bad_epochs)
 
         # Collect which epochs were dropped
         dropped_trials[s_ind, 0:sum(rej_log.bad_epochs)] = np.where(rej_log.bad_epochs)[0]
@@ -363,25 +333,12 @@ def main():
         lo3_a = np.concatenate([epochs_alpha['LeLo3']._data[:, ri_inds, :],
                                 epochs_alpha['RiLo3']._data[:, le_inds, :]], 0)
 
-        # FOOOFed data
-        lo1_f = np.concatenate([epochs_fooof['LeLo1']._data[:, ri_inds, :],
-                                epochs_fooof['RiLo1']._data[:, le_inds, :]], 0)
-        lo2_f = np.concatenate([epochs_fooof['LeLo2']._data[:, ri_inds, :],
-                                epochs_fooof['RiLo2']._data[:, le_inds, :]], 0)
-        lo3_f = np.concatenate([epochs_fooof['LeLo3']._data[:, ri_inds, :],
-                                epochs_fooof['RiLo3']._data[:, le_inds, :]], 0)
-
         ## Calculate average across trials and channels - add to group data collection
 
         # Canonical data
         canonical_group_avg_dat[s_ind, 0, :] = np.mean(lo1_a, 1).mean(0)
         canonical_group_avg_dat[s_ind, 1, :] = np.mean(lo2_a, 1).mean(0)
         canonical_group_avg_dat[s_ind, 2, :] = np.mean(lo3_a, 1).mean(0)
-
-        # FOOOFed data
-        fooofed_group_avg_dat[s_ind, 0, :] = np.mean(lo1_f, 1).mean(0)
-        fooofed_group_avg_dat[s_ind, 1, :] = np.mean(lo2_f, 1).mean(0)
-        fooofed_group_avg_dat[s_ind, 2, :] = np.mean(lo3_f, 1).mean(0)
 
         #################################################
         ## FOOOFING TRIAL AVERAGED DATA
@@ -407,10 +364,10 @@ def main():
                 if FIT_ALL_CHANNELS:
 
                     ## Average spectra across trials within a given load & side
-                    le_avg_psd_contra = avg_func(le_trial_psds[:, ri_inds, :], 0)
-                    le_avg_psd_ipsi = avg_func(le_trial_psds[:, le_inds, :], 0)
-                    ri_avg_psd_contra = avg_func(ri_trial_psds[:, le_inds, :], 0)
-                    ri_avg_psd_ipsi = avg_func(ri_trial_psds[:, ri_inds, :], 0)
+                    le_avg_psd_contra = AVG_FUNC(le_trial_psds[:, ri_inds, :], 0)
+                    le_avg_psd_ipsi = AVG_FUNC(le_trial_psds[:, le_inds, :], 0)
+                    ri_avg_psd_contra = AVG_FUNC(ri_trial_psds[:, le_inds, :], 0)
+                    ri_avg_psd_ipsi = AVG_FUNC(ri_trial_psds[:, ri_inds, :], 0)
 
                     ## Combine spectra across left & right trials for given load
                     ch_psd_contra = np.vstack([le_avg_psd_contra, ri_avg_psd_contra])
@@ -418,24 +375,24 @@ def main():
 
                     ## Fit FOOOFGroup to all channels, average & and collect results
                     fg.fit(trial_freqs, ch_psd_contra, FREQ_RANGE)
-                    fm = average_fg(fg, )
-                    fg_dict[load_label]['Contra'][seg_label].append(fm.copy())
+                    afm = average_fg(fg, BANDS)
+                    fg_dict[load_label]['Contra'][seg_label].append(afm.copy())
                     fg.fit(trial_freqs, ch_psd_ipsi, FREQ_RANGE)
-                    fm = average_fg(fg, BANDS)
-                    fg_dict[load_label]['Ipsi'][seg_label].append(fm.copy())
+                    afm = average_fg(fg, BANDS)
+                    fg_dict[load_label]['Ipsi'][seg_label].append(afm.copy())
 
                 ## COLLAPSE ACROSS CHANNELS VERSION
                 else:
 
                     ## Average spectra across trials and channels within a given load & side
-                    le_avg_psd_contra = avg_func(avg_func(le_trial_psds[:, ri_inds, :], 0), 0)
-                    le_avg_psd_ipsi = avg_func(avg_func(le_trial_psds[:, le_inds, :], 0), 0)
-                    ri_avg_psd_contra = avg_func(avg_func(ri_trial_psds[:, le_inds, :], 0), 0)
-                    ri_avg_psd_ipsi = avg_func(avg_func(ri_trial_psds[:, ri_inds, :], 0), 0)
+                    le_avg_psd_contra = AVG_FUNC(AVG_FUNC(le_trial_psds[:, ri_inds, :], 0), 0)
+                    le_avg_psd_ipsi = AVG_FUNC(AVG_FUNC(le_trial_psds[:, le_inds, :], 0), 0)
+                    ri_avg_psd_contra = AVG_FUNC(AVG_FUNC(ri_trial_psds[:, le_inds, :], 0), 0)
+                    ri_avg_psd_ipsi = AVG_FUNC(AVG_FUNC(ri_trial_psds[:, ri_inds, :], 0), 0)
 
                     ## Collapse spectra across left & right trials for given load
-                    avg_psd_contra = avg_func(np.vstack([le_avg_psd_contra, ri_avg_psd_contra]), 0)
-                    avg_psd_ipsi = avg_func(np.vstack([le_avg_psd_ipsi, ri_avg_psd_ipsi]), 0)
+                    avg_psd_contra = AVG_FUNC(np.vstack([le_avg_psd_contra, ri_avg_psd_contra]), 0)
+                    avg_psd_ipsi = AVG_FUNC(np.vstack([le_avg_psd_ipsi, ri_avg_psd_ipsi]), 0)
 
                     ## Fit FOOOF, and collect results
                     fm.fit(trial_freqs, avg_psd_contra, FREQ_RANGE)
@@ -447,9 +404,7 @@ def main():
     ## SAVE OUT RESULTS
 
     # Save out group data
-    np.save(pjoin(RES_PATH, 'Group', 'alpha_freqs_group'), group_fooofed_alpha_freqs)
     np.save(pjoin(RES_PATH, 'Group', 'canonical_group'), canonical_group_avg_dat)
-    np.save(pjoin(RES_PATH, 'Group', 'fooofed_group'), fooofed_group_avg_dat)
     np.save(pjoin(RES_PATH, 'Group', 'dropped_trials'), dropped_trials)
     np.save(pjoin(RES_PATH, 'Group', 'dropped_components'), dropped_components)
 
