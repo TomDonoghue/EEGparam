@@ -20,15 +20,14 @@ def plot_comp_boxplot(dat, save_fig=False, save_name=None):
     Dat should be 1D vector, with data that can be split up by YOUNG & OLD _INDS.
     """
 
-    # Initialize figure
+    # Initialize figure & set settings
     fig, ax = plt.subplots(figsize=[2, 4])
-
-    # Settings
     lw = 2
 
     # Create the plot
     bplot = plt.boxplot([dat[YNG_INDS], dat[OLD_INDS]], whis=1.0, widths=0.2, showfliers=False,
-                        boxprops={'linewidth': lw}, capprops={'linewidth': lw}, whiskerprops={'linewidth': lw},
+                        boxprops={'linewidth': lw},capprops={'linewidth': lw},
+                        whiskerprops={'linewidth': lw},
                         medianprops={'linewidth': lw, 'color':'black'},
                         patch_artist=True,
                         labels=['Young', 'Old'])
@@ -42,7 +41,6 @@ def plot_comp_boxplot(dat, save_fig=False, save_name=None):
     plt.setp(ax.get_xticklabels(), fontsize=12)
     plt.setp(ax.get_yticklabels(), fontsize=12)
 
-    # Set the top and right side frame & ticks off
     _set_lr_spines(ax, 2)
 
     _save_fig(save_fig, save_name)
@@ -69,12 +67,6 @@ def plot_comp(dat, save_fig=False, save_name=None):
     ax.set_xlim([0.5, 2.5])
     plt.xticks([1, 2], ['Young', 'Old'])
 
-    # Titles & Labels
-#    ax.set_title('Data')
-#    ax.set_xlabel('Noise Levels')
-#    ax.set_ylabel('Error')
-
-    # Set the top and right side frame & ticks off
     _set_lr_spines(ax, 2)
 
     _save_fig(save_fig, save_name)
@@ -147,7 +139,6 @@ def plot_oscillations(alphas, save_fig=False, save_name=None):
     plt.setp(ax.get_xticklabels(), fontsize=12)
     plt.setp(ax.get_yticklabels(), fontsize=12)
 
-    # Set the top and right side frame & ticks off
     _set_lr_spines(ax, 2)
 
     _save_fig(save_fig, save_name)
@@ -202,7 +193,6 @@ def plot_aperiodic(aps, control_offset=False, save_fig=False, save_name=None, re
     plt.setp(ax.get_xticklabels(), fontsize=12)
     plt.setp(ax.get_yticklabels(), fontsize=12)
 
-    # Set the top and right side frame & ticks off
     _set_lr_spines(ax, 2)
 
     plt.legend()
@@ -241,47 +231,63 @@ def plot_ap_band_diff(freqs, avg_diffs, p_vals, save_fig=False, save_name=None):
 
     # Add shading for statistically significant different regions
     sh_starts, sh_ends = get_pval_shades(freqs, p_vals)
+
     _plt_shade_regions(sh_starts, sh_ends)
 
     _save_fig(save_fig, save_name)
 
 
-def plot_overlap(m1, m2, std1, std2, save_fig=False, save_name=None):
+def plot_overlap(m1, m2, std1, std2, col='#2ba848', save_fig=False, save_name=None):
     """Visualize the overlap of two gaussians.
 
     m1 & std1 : define the average alpha
-    m2 & std2 : define the average alpha
+    m2 & std2 : define the canonical alpha
     """
 
-    # Get point of overlap
-    r = get_intersect(m1, m2, std1, std2)
-
-    # Initialize plot
-    fig, ax = plt.subplots(figsize=[6, 6])
-
+    # Initialize plot & settings
+    fig, ax = plt.subplots(figsize=[5, 6])
     ax.set_xlim([0, 20.])
     ax.set_ylim([0, 0.21])
 
-    x = np.linspace(0, 20, 1000)
-    step = x[1] - x[0]
+    # Set up for x-axis
+    x_vals = np.linspace(0, 20, 1000)
+    step = x_vals[1] - x_vals[0]
 
-    plot1 = plt.plot(x, norm.pdf(x, m1, std1), 'grey', lw=2.5, label='Average')
-    plot2 = plt.plot(x, norm.pdf(x, m2, std2), 'black', lw=2.5, label='Canonical')
-    #plot3 = plt.plot(r, norm.pdf(r, m1, std1), markersize=22)#, 'o')
+    # Plot the gaussians
+    plot1 = plt.plot(x_vals, norm.pdf(x_vals, m1, std1), 'grey', lw=2.5, label='Average')
+    plot2 = plt.plot(x_vals, norm.pdf(x_vals, m2, std2), 'black', lw=2.5, label='Canonical')
 
-    # Shade in overlapping area
-    _ = plt.fill_between(x[x>r-step], 0, norm.pdf(x[x>r-step], m1, std1), alpha=0.7, color='#2ba848', lw=0)
-    _ = plt.fill_between(x[x<r], 0, norm.pdf(x[x<r], m2, std2), alpha=0.7, color='#2ba848', lw=0)
-    _ = plt.fill_between(x[x<r], norm.pdf(x[x<r], m2, std2), norm.pdf(x[x<r], m1, std1),
-                     alpha=0.7, color='#d10c29', lw=0)
+    # Get point of overlap
+    r_pt = get_intersect(m1, m2, std1, std2)
 
-    # Set the top and right side frame & ticks off
+    # Shade in overlapping areas
+    alpha = 0.6
+    if m1 < m2:
+        _ = plt.fill_between(x_vals[x_vals > r_pt - step], 0,
+                             norm.pdf(x_vals[x_vals > r_pt - step], m1, std1),
+                             alpha=alpha, color=col, lw=0)
+        _ = plt.fill_between(x_vals[x_vals < r_pt], 0,
+                             norm.pdf(x_vals[x_vals < r_pt], m2, std2),
+                             alpha=alpha, color=col, lw=0)
+        _ = plt.fill_between(x_vals[x_vals < r_pt], norm.pdf(x_vals[x_vals < r_pt], m2, std2),
+                             norm.pdf(x_vals[x_vals < r_pt], m1, std1),
+                             alpha=alpha, color='#d10c29', lw=0)
+    else:
+        _ = plt.fill_between(x_vals[x_vals < r_pt + step], 0,
+                             norm.pdf(x_vals[x_vals < r_pt + step], m1, std1),
+                             alpha=alpha, color=col, lw=0)
+        _ = plt.fill_between(x_vals[x_vals > r_pt], 0,
+                             norm.pdf(x_vals[x_vals > r_pt], m2, std2),
+                             alpha=alpha, color=col, lw=0)
+        _ = plt.fill_between(x_vals[x_vals > r_pt], norm.pdf(x_vals[x_vals > r_pt], m2, std2),
+                             norm.pdf(x_vals[x_vals > r_pt], m1, std1),
+                             alpha=0.6, color='#d10c29', lw=0)
+
     _set_lr_spines(ax, 2)
 
-    plt.legend(fontsize=12)
+    #plt.legend(fontsize=12)
 
     _save_fig(save_fig, save_name)
-
 
 ###################################################################################################
 ###################################################################################################
