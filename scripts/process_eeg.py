@@ -18,6 +18,7 @@ from autoreject.autoreject import _apply_interp
 from fooof import FOOOF, FOOOFGroup
 from fooof.bands import Bands
 from fooof.data import FOOOFSettings
+from fooof.utils import trim_spectrum
 from fooof.analysis import get_band_peak
 from fooof.funcs import combine_fooofs, average_fg
 
@@ -27,13 +28,13 @@ from fooof.funcs import combine_fooofs, average_fg
 ## SETTINGS
 
 # Set paths
-DAT_PATH = '/Users/tom/Documents/Data/Voytek_WMData/G2/'
-RES_PATH = '/Users/tom/Documents/Research/1-Projects/fooof/2-Data/Results/'
+DAT_PATH = '/Users/tom/Documents/Data/02-Shared/Voytek_WMData/G2/'
+RES_PATH = '/Users/tom/Documents/Research/1-Projects/1-Current/fooof/2-Data/Results/'
 
 # Pre-Processing Options
 #   Note: by default, if set to false, this will apply a saved solution for ICA & AR
-RUN_ICA = False
-RUN_AUTOREJECT = False
+RUN_ICA = True
+RUN_AUTOREJECT = True
 
 # Analysis Options
 FIT_ALL_CHANNELS = True
@@ -87,9 +88,13 @@ def main():
     #################################################
     ## SETUP
 
+    # Initialize subject order run log
+    subj_list = []
+
     ## Get list of subject files
     subj_files = listdir(DAT_PATH)
     subj_files = [file for file in subj_files if EXT.lower() in file.lower()]
+    subj_files = sorted(subj_files)
 
     ## Set up FOOOF Objects
     # Initialize FOOOF settings & objects objects
@@ -113,10 +118,12 @@ def main():
 
     ## Initialize group level data stores
     n_subjs, n_conds, n_times = len(subj_files), 3, N_TIMES
-    group_fooofed_alpha_freqs = np.zeros(shape=[n_subjs])
+    group_fooof_alpha_freqs = np.zeros(shape=[n_subjs])
+    group_indi_alpha_freqs = np.zeros(shape=[n_subjs])
     dropped_components = np.ones(shape=[n_subjs, 50]) * 999
     dropped_trials = np.ones(shape=[n_subjs, 1500]) * 999
     canonical_group_avg_dat = np.zeros(shape=[n_subjs, n_conds, n_times])
+    canonical_icf_group_avg_dat = np.zeros(shape=[n_subjs, n_conds, n_times])
     fooofed_group_avg_dat = np.zeros(shape=[n_subjs, n_conds, n_times])
 
     # Set channel types
@@ -131,6 +138,7 @@ def main():
 
         # Get subject label and print status
         subj_label = subj_file.split('.')[0]
+        subj_list.append(subj_label)
         print('\nCURRENTLY RUNNING SUBJECT: ', subj_label, '\n')
 
         #################################################
@@ -218,7 +226,8 @@ def main():
         # Create list of new event codes to be used to label correct trials (300s)
         all_trials_new = [it + 100 for it in all_trials]
         # This is an annoying way to collapse across the doubled event markers from above
-        all_trials_new = [it - 1 if not ind%2 == 0 else it for ind, it in enumerate(all_trials_new)]
+        all_trials_new = [it - 1 if not ind % 2 == 0 else it \
+            for ind, it in enumerate(all_trials_new)]
         # Get labelled dictionary of new event names
         ev_dict2 = {k:v for k, v in zip(EV_DICT.keys(), set(all_trials_new))}
 
@@ -236,6 +245,9 @@ def main():
             if len(t_evs) > 0:
                 evs2 = np.vstack([evs2, t_evs])
                 lags = np.concatenate([lags, t_lags])
+
+        # Sort event codes
+        evs2 = np.sort(evs2, 0)
 
         #################################################
         ## FOOOF
@@ -255,16 +267,40 @@ def main():
         # Fit FOOOF across all channels
         fg.fit(freqs, psds, FREQ_RANGE, n_jobs=-1)
 
+        # Collect individual alpha peak from fooof
+        tfm = fg.get_fooof(ch_ind, False)
+        fooof_freq, _, _ = get_band_peak(tfm.peak_params_, BANDS.alpha)
+        group_fooof_alpha_freqs[s_ind] = fooof_freq
+
         # Save out FOOOF results
         fg.save(subj_label + '_fooof', pjoin(RES_PATH, 'FOOOF'), save_results=True)
 
         #################################################
-        ## ALPHA FILTERING
+        ## ALPHA FILTERING - CANONICAL ALPHA
 
         # CANONICAL: Filter data to canonical alpha band: 8-12 Hz
         alpha_dat = eeg_dat.copy()
         alpha_dat.filter(8, 12, fir_design='firwin', verbose=False)
         alpha_dat.apply_hilbert(envelope=True, verbose=False)
+
+        #################################################
+        ## ALPHA FILTERING - INDIVIDUALIZED PEAK ALPHA
+
+        # Get individual power spectrum of interest
+        cur_psd = psds[ch_ind, :]
+
+        # Get the peak within the alpha range
+        al_freqs, al_psd = trim_spectrum(freqs, cur_psd, [7, 14])
+        icf_ind = np.argmax(al_psd)
+        subj_icf = al_freqs[icf_ind]
+
+        # Collect individual alpha peak
+        group_indi_alpha_freqs[s_ind] = subj_icf
+
+        # CANONICAL: Filter data to individualized alpha
+        alpha_icf_dat = eeg_dat.copy()
+        alpha_icf_dat.filter(subj_icf-2, subj_icf+2, fir_design='firwin', verbose=False)
+        alpha_icf_dat.apply_hilbert(envelope=True, verbose=False)
 
         #################################################
         ## EPOCH TRIALS
@@ -276,8 +312,12 @@ def main():
         epochs = mne.Epochs(eeg_dat, evs2, ev_dict2, tmin=tmin, tmax=tmax,
                             baseline=None, preload=True, verbose=False)
 
-        # Epoch trials - filtered version
+        # Epoch trials - canonical alpha filtered version
         epochs_alpha = mne.Epochs(alpha_dat, evs2, ev_dict2, tmin=tmin, tmax=tmax,
+                                  baseline=(-0.5, -0.35), preload=True, verbose=False)
+
+        # Epoch trials - individualized alpha filtered version
+        epochs_alpha_icf = mne.Epochs(alpha_icf_dat, evs2, ev_dict2, tmin=tmin, tmax=tmax,
                                   baseline=(-0.5, -0.35), preload=True, verbose=False)
 
         #################################################
@@ -305,6 +345,8 @@ def main():
         # Apply autoreject to the copies of the data - apply interpolation, then drop same epochs
         _apply_interp(rej_log, epochs_alpha, ar.threshes_, ar.picks_, ar.verbose)
         epochs_alpha.drop(rej_log.bad_epochs)
+        _apply_interp(rej_log, epochs_alpha_icf, ar.threshes_, ar.picks_, ar.verbose)
+        epochs_alpha_icf.drop(rej_log.bad_epochs)
 
         # Collect which epochs were dropped
         dropped_trials[s_ind, 0:sum(rej_log.bad_epochs)] = np.where(rej_log.bad_epochs)[0]
@@ -320,7 +362,7 @@ def main():
         ri_inds = [epochs.ch_names.index(chn) for chn in ri_chs]
 
         #################################################
-        ## TRIAL-RELATED ANALYSIS: CANONICAL vs. FOOOF
+        ## TRIAL-RELATED ANALYSIS: CANONICAL ALPHA
 
         ## Pull out channels of interest for each load level
         #  Channels extracted are those contralateral to stimulus presentation
@@ -339,6 +381,24 @@ def main():
         canonical_group_avg_dat[s_ind, 0, :] = np.mean(lo1_a, 1).mean(0)
         canonical_group_avg_dat[s_ind, 1, :] = np.mean(lo2_a, 1).mean(0)
         canonical_group_avg_dat[s_ind, 2, :] = np.mean(lo3_a, 1).mean(0)
+
+        #################################################
+        ## TRIAL-RELATED ANALYSIS: INDIVIDUALIZED ALPHA
+
+        # Individualized Alpha Data
+        lo1_a_icf = np.concatenate([epochs_alpha_icf['LeLo1']._data[:, ri_inds, :],
+                                    epochs_alpha_icf['RiLo1']._data[:, le_inds, :]], 0)
+        lo2_a_icf = np.concatenate([epochs_alpha_icf['LeLo2']._data[:, ri_inds, :],
+                                    epochs_alpha_icf['RiLo2']._data[:, le_inds, :]], 0)
+        lo3_a_icf = np.concatenate([epochs_alpha_icf['LeLo3']._data[:, ri_inds, :],
+                                    epochs_alpha_icf['RiLo3']._data[:, le_inds, :]], 0)
+
+        ## Calculate average across trials and channels - add to group data collection
+
+        # Canonical data
+        canonical_icf_group_avg_dat[s_ind, 0, :] = np.mean(lo1_a_icf, 1).mean(0)
+        canonical_icf_group_avg_dat[s_ind, 1, :] = np.mean(lo2_a_icf, 1).mean(0)
+        canonical_icf_group_avg_dat[s_ind, 2, :] = np.mean(lo3_a_icf, 1).mean(0)
 
         #################################################
         ## FOOOFING TRIAL AVERAGED DATA
@@ -403,10 +463,18 @@ def main():
     #################################################
     ## SAVE OUT RESULTS
 
+    # Save out subject run log
+    with open(pjoin(RES_PATH, 'Group', 'subj_run_list.txt'), 'w') as f_obj:
+        for item in subj_list:
+            f_obj.write('{} \n'.format(item))
+
     # Save out group data
     np.save(pjoin(RES_PATH, 'Group', 'canonical_group'), canonical_group_avg_dat)
+    np.save(pjoin(RES_PATH, 'Group', 'canonical_icf_group'), canonical_icf_group_avg_dat)
     np.save(pjoin(RES_PATH, 'Group', 'dropped_trials'), dropped_trials)
     np.save(pjoin(RES_PATH, 'Group', 'dropped_components'), dropped_components)
+    np.save(pjoin(RES_PATH, 'Group', 'indi_alpha_peaks'), group_indi_alpha_freqs)
+    np.save(pjoin(RES_PATH, 'Group', 'fooof_alpha_peaks'), group_fooof_alpha_freqs)
 
     # Save out second round of FOOOFing
     for load_label in LOAD_LABELS:
