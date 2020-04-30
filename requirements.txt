@@ -1,0 +1,9 @@
+numpy
+scipy
+pandas
+patsy
+statsmodels
+matplotlib
+mne >= 0.18.2
+autoreject >= 0.2.0
+fooof >= 1.0.0
