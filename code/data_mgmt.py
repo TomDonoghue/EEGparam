@@ -5,9 +5,10 @@ from os.path import join as pjoin
 import numpy as np
 
 from fooof import FOOOFGroup
-from fooof.analysis import get_band_peak_group
+from fooof.analysis import get_band_peak_fg
 
-from settings import YNG_INDS, OLD_INDS
+from settings import BANDS, YNG_INDS, OLD_INDS
+from settings import N_LOADS, N_SUBJS, N_TIMES
 
 ###################################################################################################
 ###################################################################################################
@@ -23,12 +24,9 @@ def reshape_dat(dat):
 def load_fooof_task_md(data_path, side='Contra', folder='FOOOF'):
     """Load task data in for all subjects, selects & return metadata."""
 
-    # Settings
-    n_loads, n_subjs, n_times = 3, 31, 3
-
     # Collect measures together from FOOOF results into matrices
-    all_r2s = np.zeros(shape=[n_loads, n_subjs, n_times])
-    all_errs = np.zeros(shape=[n_loads, n_subjs, n_times])
+    all_r2s = np.zeros(shape=[N_LOADS, N_SUBJS, N_TIMES])
+    all_errs = np.zeros(shape=[N_LOADS, N_SUBJS, N_TIMES])
 
     for li, load in enumerate(['Load1', 'Load2', 'Load3']):
 
@@ -48,12 +46,9 @@ def load_fooof_task_ap(data_path, side='Contra', folder='FOOOF'):
     side: 'Ipsi' or 'Contra'
     """
 
-    # Settings
-    n_loads, n_subjs, n_times = 3, 31, 3
-
     # Collect measures together from FOOOF results into matrices
-    all_exps = np.zeros(shape=[n_loads, n_subjs, n_times])
-    all_offsets = np.zeros(shape=[n_loads, n_subjs, n_times])
+    all_exps = np.zeros(shape=[N_LOADS, N_SUBJS, N_TIMES])
+    all_offsets = np.zeros(shape=[N_LOADS, N_SUBJS, N_TIMES])
 
     for li, load in enumerate(['Load1', 'Load2', 'Load3']):
 
@@ -73,18 +68,15 @@ def load_fooof_task_pe(data_path, side='Contra', param_ind=1, folder='FOOOF'):
     side: 'Ipsi' or 'Contra'
     """
 
-    # Settings
-    n_loads, n_subjs, n_times = 3, 31, 3
-
     # Collect measures together from FOOOF results into matrices
-    all_alphas = np.zeros(shape=[n_loads, n_subjs, n_times])
+    all_alphas = np.zeros(shape=[N_LOADS, N_SUBJS, N_TIMES])
 
     for li, load in enumerate(['Load1', 'Load2', 'Load3']):
 
         pre, early, late = _load_fgs(data_path, folder, side, load)
 
         for ind, fg in enumerate([pre, early, late]):
-            temp_alphas = get_band_peak_group(fg.get_params('peak_params'), [7, 14], len(fg))
+            temp_alphas = get_band_peak_fg(fg, BANDS.alpha)
             all_alphas[li, :, ind] = temp_alphas[:, param_ind]
 
     return all_alphas

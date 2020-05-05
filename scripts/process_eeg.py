@@ -19,8 +19,8 @@ from fooof import FOOOF, FOOOFGroup
 from fooof.bands import Bands
 from fooof.data import FOOOFSettings
 from fooof.utils import trim_spectrum
-from fooof.analysis import get_band_peak
-from fooof.funcs import combine_fooofs, average_fg
+from fooof.analysis import get_band_peak_fm
+from fooof.objs.utils import combine_fooofs, average_fg
 
 ###################################################################################################
 ###################################################################################################
@@ -30,6 +30,9 @@ from fooof.funcs import combine_fooofs, average_fg
 # Set paths
 DAT_PATH = '/Users/tom/Documents/Data/02-Shared/Voytek_WMData/G2/'
 RES_PATH = '/Users/tom/Documents/Research/1-Projects/1-Current/fooof/2-Data/Results/'
+
+# Set band definitions to use
+BANDS = Bands({'alpha' : [7, 14]})
 
 # Pre-Processing Options
 #   Note: by default, if set to false, this will apply a saved solution for ICA & AR
@@ -72,9 +75,6 @@ MAX_N_PEAKS = 6
 MIN_PEAK_HEIGHT = 0.05
 PEAK_THRESHOLD = 1.5
 APERIODIC_MODE = 'fixed'
-
-# Set band definitions to use
-BANDS = Bands({'alpha' : [7, 14]})
 
 # Data settings
 EXT = '.bdf'
@@ -269,7 +269,7 @@ def main():
 
         # Collect individual alpha peak from fooof
         tfm = fg.get_fooof(ch_ind, False)
-        fooof_freq, _, _ = get_band_peak(tfm.peak_params_, BANDS.alpha)
+        fooof_freq, _, _ = get_band_peak_fm(tfm, BANDS.alpha)
         group_fooof_alpha_freqs[s_ind] = fooof_freq
 
         # Save out FOOOF results

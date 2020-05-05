@@ -19,9 +19,9 @@ You can follow along with this project by looking through everything in the `not
 ## Reference
 
 The analyses in this repository were done as part of the
-[`Parameterizing Neural Power Spectra`](https://doi.org/10.1101/299859).
+[`Parameterizing Neural Power Spectra`](https://doi.org/10.1101/299859) paper.
 
-A full guide to analyses including in this paper is availabble
+A full guide to analyses including in this paper is available
 [here](https://github.com/fooof-tools/Paper).
 
 ## Requirements

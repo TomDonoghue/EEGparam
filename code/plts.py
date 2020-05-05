@@ -42,7 +42,6 @@ def plot_comp_boxplot(dat, save_fig=False, save_name=None):
     plt.setp(ax.get_yticklabels(), fontsize=12)
 
     _set_lr_spines(ax, 2)
-
     _save_fig(save_fig, save_name)
 
 
@@ -68,7 +67,6 @@ def plot_comp(dat, save_fig=False, save_name=None):
     plt.xticks([1, 2], ['Young', 'Old'])
 
     _set_lr_spines(ax, 2)
-
     _save_fig(save_fig, save_name)
 
 
@@ -96,13 +94,12 @@ def plot_comp_scatter(data, label=None, save_fig=False, save_name=None):
 
     plt.xlim([0, 2])
 
-    plt.xticks([x1, x2], ["Young", "Old"])
+    plt.xticks([x1, x2], ['Young', 'Old'])
 
     ax.tick_params(axis='x', labelsize=12)
     ax.tick_params(axis='y', labelsize=10)
 
     _set_lr_spines(ax)
-
     _save_fig(save_fig, save_name)
 
 
@@ -140,7 +137,6 @@ def plot_oscillations(alphas, save_fig=False, save_name=None):
     plt.setp(ax.get_yticklabels(), fontsize=12)
 
     _set_lr_spines(ax, 2)
-
     _save_fig(save_fig, save_name)
 
 
@@ -194,9 +190,7 @@ def plot_aperiodic(aps, control_offset=False, save_fig=False, save_name=None, re
     plt.setp(ax.get_yticklabels(), fontsize=12)
 
     _set_lr_spines(ax, 2)
-
     plt.legend()
-
     _save_fig(save_fig, save_name)
 
     if return_vals:
@@ -206,9 +200,9 @@ def plot_aperiodic(aps, control_offset=False, save_fig=False, save_name=None, re
 def plot_ap_band_diff(freqs, avg_diffs, p_vals, save_fig=False, save_name=None):
     """Plot a comparison between specific frequency values from generated aperiodic components.
 
-    freqs - 1d vector of frequency values
-    avg_diffs - 1d vector of differences per frequency value (same len as freqs)
-    p_vals - 1d vector of p-values for each comparison  (same len as freqs)
+    freqs : 1d vector of frequency values
+    avg_diffs : 1d vector of differences per frequency value (same len as freqs)
+    p_vals : 1d vector of p-values for each comparison  (same len as freqs)
     """
 
     fig, ax = plt.subplots(figsize=[8, 6])
@@ -218,7 +212,8 @@ def plot_ap_band_diff(freqs, avg_diffs, p_vals, save_fig=False, save_name=None):
 
     plt.plot(freqs, avg_diffs, '.', markersize=12)
 
-    plt.title('\'Periodic\' Differences from Aperiodic Component', {'fontsize': 16, 'fontweight': 'bold'})
+    plt.title('\'Periodic\' Differences from Aperiodic Component',
+              {'fontsize': 16, 'fontweight': 'bold'})
     ax.set_xlabel('Frequency', {'fontsize': 14, 'fontweight': 'bold'})
     ax.set_ylabel('Difference in Power (au)', {'fontsize': 14, 'fontweight': 'bold'})
 
@@ -226,14 +221,11 @@ def plot_ap_band_diff(freqs, avg_diffs, p_vals, save_fig=False, save_name=None):
     plt.setp(ax.get_xticklabels(), fontsize=12)
     plt.setp(ax.get_yticklabels(), fontsize=12)
 
-    # Set the top and right side frame & ticks off
-    _set_lr_spines(ax, 2)
-
     # Add shading for statistically significant different regions
     sh_starts, sh_ends = get_pval_shades(freqs, p_vals)
 
+    _set_lr_spines(ax, 2)
     _plt_shade_regions(sh_starts, sh_ends)
-
     _save_fig(save_fig, save_name)
 
 
@@ -284,9 +276,7 @@ def plot_overlap(m1, m2, std1, std2, col='#2ba848', save_fig=False, save_name=No
                              alpha=0.6, color='#d10c29', lw=0)
 
     _set_lr_spines(ax, 2)
-
     #plt.legend(fontsize=12)
-
     _save_fig(save_fig, save_name)
 
 ###################################################################################################
@@ -297,7 +287,7 @@ def _save_fig(save_fig, save_name):
 
     if save_fig:
         save_name = 'plts/' + save_name + '.pdf'
-        plt.savefig(save_name, bbox_inches='tight', dpi=300)
+        plt.savefig(save_name, bbox_inches='tight', dpi=600)
 
 
 def _set_lr_spines(ax, lw=None):

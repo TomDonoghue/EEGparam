@@ -1,3 +1,5 @@
+"""Miscellaneous code."""
+
 def all_areas(dat):
     outs = []
     for dd in dat:
