@@ -1,6 +1,8 @@
 # EEG FOOOF
 
-Project repository, part of the `Parameterizing Neural Power Spectra` project.
+Project repository, part of the `Parameterizing Neural Power Spectra` project. 
+
+This repository applies power spectrum parameterization to EEG data.
 
 [![Preprint](https://img.shields.io/badge/preprint-10.1101/299859-informational.svg)](https://doi.org/10.1101/299859)
 
@@ -21,7 +23,7 @@ You can follow along with this project by looking through everything in the `not
 The analyses in this repository were done as part of the
 [`Parameterizing Neural Power Spectra`](https://doi.org/10.1101/299859) paper.
 
-A full guide to analyses including in this paper is available
+A guide to all the analyses included in this paper is available
 [here](https://github.com/fooof-tools/Paper).
 
 ## Requirements
@@ -52,4 +54,4 @@ This project repository is set up in the following way:
 
 ## Data
 
-This project uses and electroencephalography (EEG) dataset, with a working memory task.
+This project uses an electroencephalography (EEG) dataset, with a working memory task.
