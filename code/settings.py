@@ -7,7 +7,7 @@ from fooof.bands import Bands
 
 # Set paths
 DATA_PATH = '/Users/tom/Documents/Data/02-Shared/Voytek_WMData/G2/'
-RESULTS_PATH = '/Users/tom/Documents/Research/2-Projects/1-Current/fooof/2-Data/Results/'
+RESULTS_PATH = '../data/'
 
 # Define default band definitions
 BANDS = Bands({'alpha' : [7, 14]})
