@@ -8,5 +8,9 @@ cachedir/*
 # Ignore plot outputs
 *.pdf
 
+# Ignore local folders
+figures/
+data/
+
 # Ignore mac directory files
 .DS_Store
