@@ -11,7 +11,8 @@ from utils import get_intersect, get_overlap
 ###################################################################################################
 
 def calc_overlaps(alphas):
-    """
+    """Calculate the overlaps between gaussian defined peaks.
+
     The approach to do this is taken from:
     https://stackoverflow.com/questions/32551610/overlapping-probability-of-two-normal-distribution-with-scipy
     """
@@ -22,7 +23,7 @@ def calc_overlaps(alphas):
 
     for alpha in alphas:
 
-        # Get individial CF - keep BW @ 2
+        # Get individual CF - keep BW @ 2
         ind_mean, ind_std = alpha[0], 2
 
         # Normalize all deviations from canonical to be lower than 10 Hz

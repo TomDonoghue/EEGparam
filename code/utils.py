@@ -23,22 +23,22 @@ def mean_diff(d1, d2):
     return np.mean(d1) - np.mean(d2)
 
 
-def check_outliers(dat, thresh):
+def check_outliers(data, thresh):
     """Calculate indices of outliers, as defined by a standard deviation threshold."""
 
-    return list(np.where(np.abs(dat - np.mean(dat)) > thresh * np.std(dat))[0])
+    return list(np.where(np.abs(data - np.mean(data)) > thresh * np.std(data))[0])
 
 
-def calc_diff(dat, i1, i2):
+def calc_diff(data, i1, i2):
     """Calculate element-wise differences between columns of an array."""
 
-    return dat[:, i1] - dat[:, i2]
+    return data[:, i1] - data[:, i2]
 
 
-def drop_nan(vec):
+def drop_nan(arr):
     """Drop any NaN indices of an array."""
 
-    return vec[~np.isnan(vec)]
+    return arr[~np.isnan(arr)]
 
 
 def print_stat(label, stat_val, p_val):
@@ -59,12 +59,12 @@ def nan_corr(vec1, vec2):
 
 
 def nan_ttest(vec1, vec2):
-    """Run an independent samples ttest on vectors with NaNs in them."""
+    """Run an independent samples t-test on vectors with NaNs in them."""
 
     d1 = vec1[~np.isnan(vec1)]
     d2 = vec2[~np.isnan(vec2)]
 
-    return(ttest_ind(d1, d2))
+    return ttest_ind(d1, d2)
 
 
 def calc_ap_comps(freqs, model_aps):
@@ -91,7 +91,7 @@ def get_intersect(m1, m2, std1, std2):
     b = m2 / (std2**2) - m1 / (std1**2)
     c = m1**2 / (2*std1**2) - m2**2 / (2*std2**2) - np.log(std2/std1)
 
-    return np.roots([a,b,c])[0]
+    return np.roots([a, b, c])[0]
 
 
 def get_overlap(intersect, m1, m2, std1, std2):
@@ -103,8 +103,7 @@ def get_overlap(intersect, m1, m2, std1, std2):
 def get_pval_shades(freqs, p_vals):
     """Find p-value ranges to shade in.
 
-    Note:
-        This approach presumes starts significant, gets unsignificant, gets significant again.
+    Note: This approach assumes starts significant, becomes non-significant, gets significant again.
     """
 
     pst, pen = None, None

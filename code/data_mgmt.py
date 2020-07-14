@@ -7,18 +7,18 @@ import numpy as np
 from fooof import FOOOFGroup
 from fooof.analysis import get_band_peak_fg
 
-from settings import BANDS, YNG_INDS, OLD_INDS
-from settings import N_LOADS, N_SUBJS, N_TIMES
+from settings import BANDS, YNG_INDS, OLD_INDS, N_LOADS, N_SUBJS, N_TIMES
 
 ###################################################################################################
 ###################################################################################################
 
-def reshape_dat(dat):
+def reshape_data(data):
+    """Reshape loaded data objects into subsets for YNG and OLD groups."""
 
-    yng_dat = np.vstack([dat[0, YNG_INDS, :], dat[1, YNG_INDS, :], dat[2, YNG_INDS, :]])
-    old_dat = np.vstack([dat[0, OLD_INDS, :], dat[1, OLD_INDS, :], dat[2, OLD_INDS, :]])
+    yng_data = np.vstack([data[0, YNG_INDS, :], data[1, YNG_INDS, :], data[2, YNG_INDS, :]])
+    old_data = np.vstack([data[0, OLD_INDS, :], data[1, OLD_INDS, :], data[2, OLD_INDS, :]])
 
-    return yng_dat, old_dat
+    return yng_data, old_data
 
 
 def load_fooof_task_md(data_path, side='Contra', folder='FOOOF'):
@@ -62,7 +62,7 @@ def load_fooof_task_ap(data_path, side='Contra', folder='FOOOF'):
 
 
 def load_fooof_task_pe(data_path, side='Contra', param_ind=1, folder='FOOOF'):
-    """Loads task data in for all subjects, selects and return periodic FOOOF outputs.
+    """Loads task data for all subjects, selects and return periodic FOOOF outputs.
 
     data_path : path to where data
     side: 'Ipsi' or 'Contra'

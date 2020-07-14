@@ -1,4 +1,4 @@
-"""Settings."""
+"""Settings for EEGFOOOF."""
 
 from fooof.bands import Bands
 

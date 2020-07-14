@@ -3,8 +3,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from scipy.stats import ttest_ind, sem
-from scipy.stats import norm
+from scipy.stats import norm, sem
 
 from fooof.core.funcs import gaussian_function, expo_nk_function
 
@@ -14,10 +13,10 @@ from settings import *
 ###################################################################################################
 ###################################################################################################
 
-def plot_comp_boxplot(dat, save_fig=False, save_name=None):
+def plot_comp_boxplot(data, save_fig=False, save_name=None):
     """Plot comparison between groups, as a boxplot.
 
-    Dat should be 1D vector, with data that can be split up by YOUNG & OLD _INDS.
+    `data` should be a 1d array, with data that can be split up by YOUNG & OLD _INDS.
     """
 
     # Initialize figure & set settings
@@ -25,8 +24,8 @@ def plot_comp_boxplot(dat, save_fig=False, save_name=None):
     lw = 2
 
     # Create the plot
-    bplot = plt.boxplot([dat[YNG_INDS], dat[OLD_INDS]], whis=1.0, widths=0.2, showfliers=False,
-                        boxprops={'linewidth': lw},capprops={'linewidth': lw},
+    bplot = plt.boxplot([data[YNG_INDS], data[OLD_INDS]], whis=1.0, widths=0.2, showfliers=False,
+                        boxprops={'linewidth': lw}, capprops={'linewidth': lw},
                         whiskerprops={'linewidth': lw},
                         medianprops={'linewidth': lw, 'color':'black'},
                         patch_artist=True,
@@ -37,7 +36,7 @@ def plot_comp_boxplot(dat, save_fig=False, save_name=None):
     for box, color in zip(bplot['boxes'], colors):
         box.set_facecolor(color)
 
-    # Set tick fontsizes
+    # Set tick font-sizes
     plt.setp(ax.get_xticklabels(), fontsize=12)
     plt.setp(ax.get_yticklabels(), fontsize=12)
 
@@ -45,20 +44,20 @@ def plot_comp_boxplot(dat, save_fig=False, save_name=None):
     _save_fig(save_fig, save_name)
 
 
-def plot_comp(dat, save_fig=False, save_name=None):
+def plot_comp(data, save_fig=False, save_name=None):
     """Plot comparison between groups, as a mean value with an errorbar.
 
-    Dat should be 1D vector, with data that can be split up by YOUNG & OLD _INDS.
+    `data` should be a 1d array, with data that can be split up by YOUNG & OLD _INDS.
     """
 
     fig, ax = plt.subplots(figsize=[2, 4])
 
     # Split up data
-    you_dat = dat[YNG_INDS][~np.isnan(dat[YNG_INDS])]
-    old_dat = dat[OLD_INDS][~np.isnan(dat[OLD_INDS])]
+    you_data = data[YNG_INDS][~np.isnan(data[YNG_INDS])]
+    old_data = data[OLD_INDS][~np.isnan(data[OLD_INDS])]
 
-    means = [np.mean(you_dat), np.mean(old_dat)]
-    sems = [sem(you_dat), sem(old_dat)]
+    means = [np.mean(you_data), np.mean(old_data)]
+    sems = [sem(you_data), sem(old_data)]
 
     plt.errorbar([1, 2], means, yerr=sems, xerr=None, fmt='.',
                  markersize=22, capsize=10, elinewidth=2, capthick=2)
@@ -132,7 +131,7 @@ def plot_oscillations(alphas, save_fig=False, save_name=None):
     ax.set_xlabel('Frequency', {'fontsize': 14})
     ax.set_ylabel('Power', {'fontsize': 14})
 
-    # Set tick fontsizes
+    # Set tick font-sizes
     plt.setp(ax.get_xticklabels(), fontsize=12)
     plt.setp(ax.get_yticklabels(), fontsize=12)
 
@@ -175,7 +174,7 @@ def plot_aperiodic(aps, control_offset=False, save_fig=False, save_name=None, re
     ax.plot(fs, you_avg, YNG_COL, linewidth=4, label='Young')
     ax.plot(fs, old_avg, OLD_COL, linewidth=4, label='Old')
 
-    # Shade regions of siginificant difference
+    # Shade regions of significant difference
     avg_diffs, p_vals = calc_ap_comps(fs, ap_psds)
     sh_starts, sh_ends = get_pval_shades(fs, p_vals)
     _plt_shade_regions(sh_starts, sh_ends)
@@ -185,7 +184,7 @@ def plot_aperiodic(aps, control_offset=False, save_fig=False, save_name=None, re
     ax.set_xlabel('Frequency', {'fontsize': 14, 'fontweight':'bold'})
     ax.set_ylabel('Power', {'fontsize': 14, 'fontweight':'bold'})
 
-    # Set tick fontsizes
+    # Set tick font-sizes
     plt.setp(ax.get_xticklabels(), fontsize=12)
     plt.setp(ax.get_yticklabels(), fontsize=12)
 
@@ -200,9 +199,9 @@ def plot_aperiodic(aps, control_offset=False, save_fig=False, save_name=None, re
 def plot_ap_band_diff(freqs, avg_diffs, p_vals, save_fig=False, save_name=None):
     """Plot a comparison between specific frequency values from generated aperiodic components.
 
-    freqs : 1d vector of frequency values
-    avg_diffs : 1d vector of differences per frequency value (same len as freqs)
-    p_vals : 1d vector of p-values for each comparison  (same len as freqs)
+    freqs : 1d array of frequency values
+    avg_diffs : 1d array of differences per frequency value (same length as freqs)
+    p_vals : 1d array of p-values for each comparison  (same length as freqs)
     """
 
     fig, ax = plt.subplots(figsize=[8, 6])
@@ -217,7 +216,7 @@ def plot_ap_band_diff(freqs, avg_diffs, p_vals, save_fig=False, save_name=None):
     ax.set_xlabel('Frequency', {'fontsize': 14, 'fontweight': 'bold'})
     ax.set_ylabel('Difference in Power (au)', {'fontsize': 14, 'fontweight': 'bold'})
 
-    # Set tick fontsizes
+    # Set tick font-sizes
     plt.setp(ax.get_xticklabels(), fontsize=12)
     plt.setp(ax.get_yticklabels(), fontsize=12)
 
@@ -276,7 +275,6 @@ def plot_overlap(m1, m2, std1, std2, col='#2ba848', save_fig=False, save_name=No
                              alpha=0.6, color='#d10c29', lw=0)
 
     _set_lr_spines(ax, 2)
-    #plt.legend(fontsize=12)
     _save_fig(save_fig, save_name)
 
 ###################################################################################################
@@ -308,5 +306,5 @@ def _set_lr_spines(ax, lw=None):
 def _plt_shade_regions(shade_starts, shade_ends):
     """Shade in regions of a plot."""
 
-    for shs, she in zip(shade_starts, shade_ends):
-        plt.axvspan(shs, she, color='r', alpha=0.2, lw=0)
+    for sh_st, sh_en in zip(shade_starts, shade_ends):
+        plt.axvspan(sh_st, sh_en, color='r', alpha=0.2, lw=0)
