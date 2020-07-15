@@ -102,6 +102,28 @@ def plot_comp_scatter(data, label=None, save_fig=False, save_name=None):
     _save_fig(save_fig, save_name)
 
 
+def plot_behav_loads(loads_data, save_fig=False, save_name=None):
+    """Plot behavioural performance across loads.
+
+    loads_data : list of summary data across behavioural loads.
+    """
+
+    fig, ax = plt.subplots(figsize=[6, 4])
+
+    plt.plot([1, 2, 3], [data['yng_mean'] for data in loads_data],
+             '.', markersize=15, label='YNG', c=YNG_COL)
+    plt.plot([1, 2, 3], [data['old_mean'] for data in loads_data],
+             '.', markersize=15, label='OLD', c=OLD_COL)
+    plt.legend()
+
+    plt.xlabel('Load', fontsize=14)
+    plt.xticks([1, 2, 3], ['1', '2', '3'])
+    plt.ylabel("d'", fontsize=14);
+
+    _set_lr_spines(ax, lw=2)
+    _save_fig(save_fig, save_name)
+
+
 def plot_oscillations(alphas, save_fig=False, save_name=None):
     """Plot a group of (flattened) oscillation definitions."""
 
