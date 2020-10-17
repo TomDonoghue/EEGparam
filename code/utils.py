@@ -17,6 +17,12 @@ def cohens_d(d1, d2):
     return (mean(d1) - mean(d2)) / (sqrt((stdev(d1) ** 2 + stdev(d2) ** 2) / 2))
 
 
+def cohens_d_1samp(d1, mu=0):
+    """Calculate cohens-D for a one sample comparision: (u1 - u0) / std."""
+
+    return (mean(d1) - mu) / stdev(d1)
+
+
 def mean_diff(d1, d2):
     """Helper function to calculate mean differences."""
 

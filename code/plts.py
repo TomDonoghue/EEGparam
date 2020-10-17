@@ -69,7 +69,7 @@ def plot_comp(data, save_fig=False, save_name=None):
     _save_fig(save_fig, save_name)
 
 
-def plot_comp_scatter(data, label=None, save_fig=False, save_name=None):
+def plot_comp_scatter(data, label=None, ylim=None, save_fig=False, save_name=None):
     """Create a scatter plot comparing the two groups."""
 
     fig, ax = plt.subplots(figsize=[2, 4])
@@ -92,8 +92,10 @@ def plot_comp_scatter(data, label=None, save_fig=False, save_name=None):
         ax.set_ylabel(label, fontsize=16)
 
     plt.xlim([0, 2])
-
     plt.xticks([x1, x2], ['Young', 'Old'])
+
+    if ylim:
+        plt.ylim(ylim)
 
     ax.tick_params(axis='x', labelsize=12)
     ax.tick_params(axis='y', labelsize=10)
@@ -211,7 +213,7 @@ def plot_aperiodic(aps, control_offset=False, save_fig=False, save_name=None, re
     plt.setp(ax.get_yticklabels(), fontsize=12)
 
     _set_lr_spines(ax, 2)
-    plt.legend()
+    #plt.legend()
     _save_fig(save_fig, save_name)
 
     if return_vals:
@@ -273,8 +275,11 @@ def plot_overlap(m1, m2, std1, std2, col='#2ba848', save_fig=False, save_name=No
     # Get point of overlap
     r_pt = get_intersect(m1, m2, std1, std2)
 
+    #shade_col = '#d10c29'
+    shade_col = 'grey'
+
     # Shade in overlapping areas
-    alpha = 0.6
+    alpha = 0.75
     if m1 < m2:
         _ = plt.fill_between(x_vals[x_vals > r_pt - step], 0,
                              norm.pdf(x_vals[x_vals > r_pt - step], m1, std1),
@@ -284,7 +289,7 @@ def plot_overlap(m1, m2, std1, std2, col='#2ba848', save_fig=False, save_name=No
                              alpha=alpha, color=col, lw=0)
         _ = plt.fill_between(x_vals[x_vals < r_pt], norm.pdf(x_vals[x_vals < r_pt], m2, std2),
                              norm.pdf(x_vals[x_vals < r_pt], m1, std1),
-                             alpha=alpha, color='#d10c29', lw=0)
+                             alpha=alpha, color=shade_col, lw=0)
     else:
         _ = plt.fill_between(x_vals[x_vals < r_pt + step], 0,
                              norm.pdf(x_vals[x_vals < r_pt + step], m1, std1),
@@ -294,7 +299,7 @@ def plot_overlap(m1, m2, std1, std2, col='#2ba848', save_fig=False, save_name=No
                              alpha=alpha, color=col, lw=0)
         _ = plt.fill_between(x_vals[x_vals > r_pt], norm.pdf(x_vals[x_vals > r_pt], m2, std2),
                              norm.pdf(x_vals[x_vals > r_pt], m1, std1),
-                             alpha=0.6, color='#d10c29', lw=0)
+                             alpha=alpha, color=shade_col, lw=0)
 
     _set_lr_spines(ax, 2)
     _save_fig(save_fig, save_name)
@@ -329,4 +334,4 @@ def _plt_shade_regions(shade_starts, shade_ends):
     """Shade in regions of a plot."""
 
     for sh_st, sh_en in zip(shade_starts, shade_ends):
-        plt.axvspan(sh_st, sh_en, color='r', alpha=0.2, lw=0)
+        plt.axvspan(sh_st, sh_en, color='grey', alpha=0.4, lw=0)
