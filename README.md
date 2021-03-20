@@ -1,18 +1,18 @@
-# EEG FOOOF
+# EEG - Spectral Parameterization
 
 Project repository, part of the `Parameterizing Neural Power Spectra` project. 
 
-This repository applies power spectrum parameterization to EEG data.
+This repository applies spectral parameterization to EEG data.
 
-[![Preprint](https://img.shields.io/badge/preprint-10.1101/299859-informational.svg)](https://doi.org/10.1101/299859)
+[![Paper](https://img.shields.io/badge/paper-nn10.1038-informational.svg)](https://doi.org/10.1038/s41593-020-00744-x)
 
 ## Overview
 
-This repository applies the [FOOOF](http://github.com/fooof-tools/fooof) algorithm to EEG data.
+This repository applies the [spectral parameterization](http://github.com/fooof-tools/fooof) algorithm to EEG data.
 
 Analyses include:
 - comparing resting state measures between young and old subjects
-- task analyses of a working memory task, predicting behaviour using FOOOF outputs
+- task analyses of a working memory task, predicting behaviour using parameterized outputs
 
 ## Project Guide
 
@@ -21,7 +21,7 @@ You can follow along with this project by looking through everything in the `not
 ## Reference
 
 The analyses in this repository were done as part of the
-[`Parameterizing Neural Power Spectra`](https://doi.org/10.1101/299859) paper.
+[`Parameterizing neural power spectra into periodic and aperiodic components`](https://doi.org/10.1038/s41593-020-00744-x) paper.
 
 A guide to all the analyses included in this paper is available
 [here](https://github.com/fooof-tools/Paper).
@@ -41,7 +41,7 @@ In addition to general scientific Python packages, this analysis requires:
 
 - [mne](https://github.com/mne-tools/mne-python)
 - [autoreject](https://github.com/autoreject/autoreject)
-- [fooof](https://github.com/fooof-tools/fooof)
+- [fooof](https://github.com/fooof-tools/fooof) == 1.0.0
 
 ## Repository Layout
 
