@@ -1,10 +1,10 @@
 # EEG - Spectral Parameterization
 
-Project repository, part of the `Parameterizing Neural Power Spectra` project. 
+Project repository, part of the `parameterizing neural power spectra` project. 
 
 This repository applies spectral parameterization to EEG data.
 
-[![Paper](https://img.shields.io/badge/paper-nn10.1038-informational.svg)](https://doi.org/10.1038/s41593-020-00744-x)
+[![Paper](https://img.shields.io/badge/Paper-nn10.1038-informational.svg)](https://doi.org/10.1038/s41593-020-00744-x)
 
 ## Overview
 
@@ -20,8 +20,7 @@ You can follow along with this project by looking through everything in the `not
 
 ## Reference
 
-The analyses in this repository were done as part of the
-[`Parameterizing neural power spectra into periodic and aperiodic components`](https://doi.org/10.1038/s41593-020-00744-x) paper.
+The analyses in this repository were done as part of the [`parameterizing neural power spectra`](https://doi.org/10.1038/s41593-020-00744-x) paper.
 
 A guide to all the analyses included in this paper is available
 [here](https://github.com/fooof-tools/Paper).
